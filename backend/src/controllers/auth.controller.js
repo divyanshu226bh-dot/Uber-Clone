@@ -171,6 +171,7 @@ export async function login(req, res) {
 
   res.status(200).json({
     message: "User logged in successfully",
+    id: user._id,
     username: user.username,
     email: user.email,
     role: "rider",

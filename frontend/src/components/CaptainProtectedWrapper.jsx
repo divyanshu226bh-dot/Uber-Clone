@@ -7,7 +7,7 @@ const CaptainProtectWrapper = ({ children }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem('captainAccessToken');
 
     if (!token) {
       navigate('/captain-login');
@@ -29,7 +29,9 @@ const CaptainProtectWrapper = ({ children }) => {
         }
       })
       .catch(() => {
-        localStorage.removeItem('accessToken');
+        localStorage.removeItem('captainAccessToken');
+        localStorage.removeItem('captain');
+        localStorage.removeItem('captainId');
         navigate('/captain-login');
       });
   }, [navigate]);

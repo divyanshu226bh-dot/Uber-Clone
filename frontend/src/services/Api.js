@@ -1,58 +1,81 @@
-import axios from 'axios';
+import axios from "axios";
 
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api',
-  withCredentials: true, // Necessary if your refresh token is in HTTP-only cookies
+  baseURL: "http://localhost:3000/api",
+  withCredentials: true,
 });
 
-// 1. Request Interceptor: Attach access token to headers
+// Decide which token belongs to the current app section.
+const getTokenKey = () => {
+  const path = window.location.pathname;
+
+  if (path.startsWith("/captain")) {
+    return "captainAccessToken";
+  }
+
+  return "userAccessToken";
+};
+
+// Attach the correct role-specific access token.
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
+    const tokenKey = getTokenKey();
+    const token = localStorage.getItem(tokenKey);
+
     if (token) {
+      config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
-// 2. Response Interceptor: Catch 401s and rotate token dynamically
+// Refresh the token and retry the failed request.
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // Check if error is 401 Unauthorized and request hasn't been retried yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry
+    ) {
       originalRequest._retry = true;
 
+      const tokenKey = getTokenKey();
+
       try {
-        // Call your backend route to get a new access token
         const response = await axios.get(
-          'http://localhost:3000/api/auth/rotate-token',
-          {},
-          { withCredentials: true }
+          "http://localhost:3000/api/auth/rotate-token",
+          { withCredentials: true },
         );
 
         const newAccessToken = response.data.accessToken;
 
-        // Store new access token
-        localStorage.setItem('accessToken', newAccessToken);
+        localStorage.setItem(tokenKey, newAccessToken);
 
-        // Update authorization header and retry original request
+        originalRequest.headers = originalRequest.headers || {};
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+
         return api(originalRequest);
       } catch (refreshError) {
-        // If rotateToken also fails (e.g. refresh token expired), log out the user
-        localStorage.removeItem('accessToken');
-        window.location.href = '/login';
+        localStorage.removeItem(tokenKey);
+
+        const isCaptain = tokenKey === "captainAccessToken";
+
+        localStorage.removeItem(isCaptain ? "captain" : "user");
+
+        window.location.href = isCaptain ? "/captain-login" : "/login";
+
         return Promise.reject(refreshError);
       }
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;

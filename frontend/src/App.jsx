@@ -9,6 +9,8 @@ import CaptainHome from "./pages/CaptainHome";
 import CaptainRegister from "./pages/CaptainRegister";
 import UserProtectWrapper from "./components/UserProtectedWrapper";
 import CaptainProtectWrapper from "./components/CaptainProtectedWrapper";
+import UserRiding from "./pages/UserRiding";
+import CaptainRiding from "./pages/CaptainRiding";
 
 // // Placeholder components for remaining pages
 // const UserLogin = () => <div className="p-8 text-white bg-black min-h-screen">User Login Page</div>;
@@ -25,9 +27,11 @@ function App() {
       <Route path="/login" element={<UserLogin />} />
       <Route path="/register" element={<UserRegister />} />
       <Route path="/home" element={<UserProtectWrapper> <UserHome /> </UserProtectWrapper>} />
+      <Route path="/user-riding" element={<UserProtectWrapper> <UserRiding /> </UserProtectWrapper>} />
       <Route path="/captain-login" element={<CaptainLogin />} />
       <Route path="/captain-register" element={<CaptainRegister />} />
       <Route path="/captain-home" element={<CaptainProtectWrapper> <CaptainHome /> </CaptainProtectWrapper>} />
+      <Route path="/captain-riding" element={<CaptainProtectWrapper> <CaptainRiding /> </CaptainProtectWrapper>} />
     </Routes>
   );
 }

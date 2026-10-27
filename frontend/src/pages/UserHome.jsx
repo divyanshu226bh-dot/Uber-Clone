@@ -37,7 +37,7 @@ if (typeof window !== "undefined") {
 
 const rideOptions = [
   {
-    id: "uber-go",
+    id: "car",
     name: "Uber Go",
     description: "Affordable everyday rides",
     time: "3 min away",
@@ -47,7 +47,7 @@ const rideOptions = [
     icon: FaCar,
   },
   {
-    id: "uber-auto",
+    id: "auto",
     name: "Uber Auto",
     description: "Quick rides through the city",
     time: "2 min away",
@@ -57,7 +57,7 @@ const rideOptions = [
     icon: MdElectricRickshaw,
   },
   {
-    id: "uber-moto",
+    id: "moto",
     name: "Uber Moto",
     description: "Beat the traffic",
     time: "1 min away",
@@ -80,12 +80,15 @@ const UserHome = () => {
   const [step, setStep] = useState("home"); // 'home' | 'search' | 'vehicle' | 'searching'
   const [pickup, setPickup] = useState("");
   const [destination, setDestination] = useState("");
+  const [pickupCoords, setPickupCoords] = useState(null);
+  const [destinationCoords, setDestinationCoords] = useState(null);
   const [activeField, setActiveField] = useState("pickup"); // 'pickup' | 'destination'
   const [userLocation, setUserLocation] = useState([26.801, 75.8058]); // Default center (Jaipur)
   const [selectedRide, setSelectedRide] = useState("uber-go");
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const createdRideRef = useRef(null);
 
   // Live Location Autocomplete Suggestions
   const [suggestions, setSuggestions] = useState([]);
@@ -117,14 +120,34 @@ const UserHome = () => {
     if (!socket) return;
 
     const handleRideAccepted = (data) => {
-      // Driver accepted -> navigate user to /user-riding
+      console.log("✅ RIDE ACCEPTED EVENT:", data);
+
+      const createdRide = createdRideRef.current;
+
+      if (!createdRide || String(createdRide.rideId) !== String(data?.rideId)) {
+        console.error("OTP missing or ride ID mismatch.", {
+          createdRide,
+          acceptedRide: data?.rideId,
+        });
+
+        setMessage(
+          "Your ride was accepted, but the OTP wasn't received. Please refresh or retry.",
+        );
+        return;
+      }
+
       navigate("/user-riding", {
         state: {
           rideId: data.rideId,
+          userId,
+          otp: createdRide.otp,
           captain: data.captain,
-          pickup,
-          destination,
+          pickup: data.pickup || pickup,
+          destination: data.destination || destination,
+          pickupCoords: data.pickupCoords,
+          destinationCoords: data.destinationCoords,
           vehicleType: selectedRide,
+          status: data.status,
         },
       });
     };
@@ -283,20 +306,35 @@ const UserHome = () => {
   }, []);
 
   // Fetch Current Device Location
+
   const handleUseCurrentLocation = () => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
+
+          const coords = {
+            lat: latitude,
+            lng: longitude,
+          };
+
+          setPickupCoords(coords);
           setUserLocation([latitude, longitude]);
+
           setPickup(
             `Current Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`,
           );
+
           setMessage("Live GPS location acquired.");
         },
         (error) => {
           console.error("Geolocation Error:", error);
           setMessage("Unable to access device GPS location.");
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
         },
       );
     } else {
@@ -321,25 +359,106 @@ const UserHome = () => {
     setStep("vehicle");
   };
 
-  const handleConfirmRide = (rideId) => {
-    setSelectedRide(rideId);
-    setStep("searching");
+  useEffect(() => {
+    if (!socket) return;
 
-    const ridePayload = {
-      rideId: `RIDE_${Date.now()}`,
-      userId: userId || "guest_user",
-      pickup,
-      destination,
-      vehicleType: rideId,
-      price: selectedRideData?.price || 145,
+    const handleRideCreated = (data) => {
+      console.log("✅ RIDE CREATED:", data);
+
+      if (!data?.rideId || !data?.otp) {
+        console.error("Ride created without ride ID or OTP:", data);
+        return;
+      }
+
+      createdRideRef.current = {
+        rideId: String(data.rideId),
+        otp: String(data.otp),
+        status: data.status,
+      };
     };
 
-    // Emit live ride request to backend over WebSocket
-    if (socket) {
-      socket.emit("create-ride", ridePayload);
-    }
-  };
+    socket.on("ride-created", handleRideCreated);
 
+    return () => {
+      socket.off("ride-created", handleRideCreated);
+    };
+  }, [socket]);
+
+  const handleConfirmRide = (rideId) => {
+    console.log("🟢 CONFIRM RIDE CLICKED");
+    console.log("User ID:", userId);
+    console.log("Socket connected:", socket?.connected);
+    console.log("Ride ID received:", rideId);
+    console.log("Pickup:", pickup);
+    console.log("Destination:", destination);
+
+    if (!userId || !socket?.connected) {
+      console.log("❌ Failed: user ID or socket");
+      setMessage("Please log in and reconnect before requesting a ride.");
+      setStep("home");
+      return;
+    }
+
+    if (!pickup.trim() || !destination.trim()) {
+      console.log("❌ Failed: pickup or destination");
+      setMessage("Please enter both pickup and destination.");
+      setStep("home");
+      return;
+    }
+
+    if (!pickupCoords || !destinationCoords) {
+      console.log("❌ Failed: location coordinates missing", {
+        pickupCoords,
+        destinationCoords,
+      });
+
+      setMessage(
+        "Please select both pickup and destination from the map suggestions, or use current location for pickup.",
+      );
+      setStep("home");
+      return;
+    }
+
+    const ride = rideOptions.find((item) => item.id === rideId);
+    console.log("Matched ride:", ride);
+
+    if (!ride) {
+      console.log("❌ Failed: selected ride not found");
+      setMessage("Please select a valid ride option.");
+      setStep("home");
+      return;
+    }
+
+    setSelectedRide(rideId);
+    setMessage("");
+    setStep("searching");
+
+    console.log("📤 EMITTING CREATE-RIDE");
+
+    socket.emit("create-ride", {
+      userId,
+      pickup: pickup.trim(),
+      destination: destination.trim(),
+      pickupCoords,
+      destinationCoords,
+      vehicleType: rideId,
+      price: ride.price,
+    });
+  };
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleRideError = (data) => {
+      setMessage(data?.message || "Something went wrong with your ride.");
+      setStep("home");
+    };
+
+    socket.on("ride-error", handleRideError);
+
+    return () => {
+      socket.off("ride-error", handleRideError);
+    };
+  }, [socket]);
   const handleLogout = () => {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("token");
@@ -632,7 +751,10 @@ const UserHome = () => {
                                 setActiveField("pickup");
                                 setStep("search");
                               }}
-                              onChange={(e) => setPickup(e.target.value)}
+                              onChange={(e) => {
+                                setPickup(e.target.value);
+                                setPickupCoords(null);
+                              }}
                               placeholder="Enter pickup address"
                               className="w-full rounded-2xl border border-[#111111]/15 bg-[#FCF6F5] px-4 py-3 text-sm text-[#111111] font-medium outline-hidden transition placeholder:text-zinc-400 focus:border-[#990011] focus:bg-white cursor-pointer"
                             />
@@ -652,7 +774,10 @@ const UserHome = () => {
                                 setActiveField("destination");
                                 setStep("search");
                               }}
-                              onChange={(e) => setDestination(e.target.value)}
+                              onChange={(e) => {
+                                setDestination(e.target.value);
+                                setDestinationCoords(null);
+                              }}
                               placeholder="Where do you want to go?"
                               className="w-full rounded-2xl border border-[#111111]/15 bg-[#FCF6F5] px-4 py-3 text-sm text-[#111111] font-medium outline-hidden transition placeholder:text-zinc-400 focus:border-[#990011] focus:bg-white cursor-pointer"
                             />
@@ -700,17 +825,35 @@ const UserHome = () => {
                           key={i}
                           type="button"
                           onClick={() => {
+                            const coords = {
+                              lat: Number(sug.lat),
+                              lng: Number(sug.lon),
+                            };
+
+                            if (
+                              !Number.isFinite(coords.lat) ||
+                              !Number.isFinite(coords.lng) ||
+                              coords.lat < -90 ||
+                              coords.lat > 90 ||
+                              coords.lng < -180 ||
+                              coords.lng > 180
+                            ) {
+                              setMessage(
+                                "Invalid location coordinates. Please select another result.",
+                              );
+                              return;
+                            }
+
                             if (activeField === "pickup") {
                               setPickup(sug.display_name);
-                              if (sug.lat && sug.lon) {
-                                setUserLocation([
-                                  parseFloat(sug.lat),
-                                  parseFloat(sug.lon),
-                                ]);
-                              }
+                              setPickupCoords(coords);
+                              setUserLocation([coords.lat, coords.lng]);
                             } else {
                               setDestination(sug.display_name);
+                              setDestinationCoords(coords);
                             }
+
+                            setMessage("");
                             setSuggestions([]);
                           }}
                           className="flex items-center gap-3 rounded-xl p-2 text-left hover:bg-[#FCF6F5] transition"
@@ -1118,6 +1261,9 @@ const UserHome = () => {
           setDestination={setDestination}
           activeField={activeField}
           setActiveField={setActiveField}
+          setPickupCoords={setPickupCoords}
+          setDestinationCoords={setDestinationCoords}
+          setUserLocation={setUserLocation}
           onProceed={() => setStep("vehicle")}
           onClose={() => setStep("home")}
         />

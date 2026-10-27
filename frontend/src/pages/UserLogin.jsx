@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import api from '../services/Api';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import api from "../services/Api";
 import {
   FaEye,
   FaEyeSlash,
@@ -8,36 +8,44 @@ import {
   FaCar,
   FaLock,
   FaEnvelope,
-} from 'react-icons/fa';
+} from "react-icons/fa";
 
 const UserLogin = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
-      const response = await api.post('http://localhost:3000/api/auth/login', {
+      const response = await api.post("http://localhost:3000/api/auth/login", {
         email,
         password,
       });
 
       if (response.status === 200) {
-        const { accessToken } = response.data;
-        localStorage.setItem('accessToken', accessToken);
-        navigate('/home');
+        const { accessToken, id, username, email, role } = response.data;
+
+        localStorage.setItem("userAccessToken", accessToken);
+
+        localStorage.setItem(
+          "user",
+          JSON.stringify({ _id: id, username, email, role }),
+        );
+
+        navigate("/home");
       }
     } catch (err) {
       setError(
-        err.response?.data?.message || 'Failed to login. Please check your credentials.'
+        err.response?.data?.message ||
+          "Failed to login. Please check your credentials.",
       );
     } finally {
       setLoading(false);
@@ -68,7 +76,9 @@ const UserLogin = () => {
             <div className="w-12 h-12 bg-[#FCF6F5] border border-[#111111]/5 rounded-2xl flex items-center justify-center text-[#990011] mb-2 shadow-xs">
               <FaCar className="text-xl" />
             </div>
-            <h2 className="text-2xl font-black tracking-tight text-[#111111]">Rider Login</h2>
+            <h2 className="text-2xl font-black tracking-tight text-[#111111]">
+              Rider Login
+            </h2>
             <p className="text-xs font-medium text-zinc-500">
               Welcome back! Enter your details to request a ride.
             </p>
@@ -83,7 +93,9 @@ const UserLogin = () => {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-[#111111]">Email Address</label>
+              <label className="text-xs font-bold text-[#111111]">
+                Email Address
+              </label>
               <div className="relative flex items-center">
                 <FaEnvelope className="absolute left-4 text-zinc-400 text-sm" />
                 <input
@@ -98,11 +110,13 @@ const UserLogin = () => {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-[#111111]">Password</label>
+              <label className="text-xs font-bold text-[#111111]">
+                Password
+              </label>
               <div className="relative flex items-center">
                 <FaLock className="absolute left-4 text-zinc-400 text-sm" />
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   required
                   placeholder="••••••••"
                   value={password}
@@ -127,14 +141,14 @@ const UserLogin = () => {
               {loading ? (
                 <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
               ) : (
-                'Log In as Rider'
+                "Log In as Rider"
               )}
             </button>
           </form>
 
           <div className="mt-8 pt-6 border-t border-[#111111]/10 text-center">
             <p className="text-xs font-medium text-zinc-500">
-              Don't have a rider account?{' '}
+              Don't have a rider account?{" "}
               <Link
                 to="/register"
                 className="text-[#990011] font-bold underline underline-offset-4 hover:text-[#7a000e] transition-colors"

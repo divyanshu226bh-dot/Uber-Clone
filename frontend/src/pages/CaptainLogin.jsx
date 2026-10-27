@@ -37,7 +37,7 @@ const CaptainLogin = () => {
         const captainProfile = captain || user || response.data;
 
         // 2. Save access token
-        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("captainAccessToken", accessToken);
 
         // 3. Save captain object and captainId to localStorage
         localStorage.setItem("captain", JSON.stringify(captainProfile));

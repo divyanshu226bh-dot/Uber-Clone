@@ -7,7 +7,7 @@ const UserProtectWrapper = ({ children }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem('userAccessToken');
 
     if (!token) {
       navigate('/login');
@@ -30,7 +30,8 @@ const UserProtectWrapper = ({ children }) => {
         }
       })
       .catch(() => {
-        localStorage.removeItem('accessToken');
+        localStorage.removeItem('userAccessToken');
+        localStorage.removeItem('user');
         navigate('/login');
       });
   }, [navigate]);

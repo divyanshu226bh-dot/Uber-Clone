@@ -204,34 +204,78 @@ const CaptainHome = () => {
   };
 
   // Captain accepts the ride
+
   const handleAcceptRide = () => {
-    if (!activeRideRequest || !socket) return;
+    if (!activeRideRequest || !socket || !captainId) return;
 
     const acceptPayload = {
       rideId: activeRideRequest.rideId,
       userId: activeRideRequest.userId,
       captainData: {
-        id: captainId,
+        _id: captainId,
         fullname: captain.fullname || {
           firstname: "Captain",
           lastname: "Driver",
         },
-        name: `${captain.fullname?.firstname || "Captain"} ${captain.fullname?.lastname || ""}`.trim(),
-        phone: captain.phone || "+91 9876543210",
+        name: `${captain.fullname?.firstname || "Captain"} ${
+          captain.fullname?.lastname || ""
+        }`.trim(),
+        phone: captain.phone || "",
         vehicle: captain.vehicle || {
-          plate: "RJ-14-AB-1234",
+          plate: "",
           vehicleType: activeRideRequest.vehicleType || "car",
         },
       },
     };
 
-    // Emit socket acceptance event to notify user private room
+    // Ask the backend to accept the ride.
+    // Navigation will happen only after confirmation.
     socket.emit("accept-ride", acceptPayload);
-
-    const currentTrip = activeRideRequest;
-    setActiveRideRequest(null);
-    navigate("/captain-riding", { state: { ride: currentTrip } });
   };
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleRideAcceptConfirmed = (data) => {
+      console.log("✅ Ride acceptance confirmed:", data);
+
+      const acceptedRide = {
+        ...activeRideRequest,
+        ...data,
+        rideId: data.rideId,
+        userId: data.userId || activeRideRequest?.userId,
+        pickup: data.pickup || activeRideRequest?.pickup,
+        destination: data.destination || activeRideRequest?.destination,
+        pickupCoords: data.pickupCoords || activeRideRequest?.pickupCoords,
+        destinationCoords:
+          data.destinationCoords || activeRideRequest?.destinationCoords,
+        price: data.price ?? activeRideRequest?.price,
+        paymentMethod:
+          data.paymentMethod || activeRideRequest?.paymentMethod || "cash",
+        status: data.status,
+      };
+
+      setActiveRideRequest(null);
+
+      navigate("/captain-riding", {
+        state: {
+          ride: acceptedRide,
+        },
+      });
+    };
+    const handleRideError = (error) => {
+      console.error("❌ Ride acceptance failed:", error.message);
+      setStatusMessage(error.message || "Could not accept this ride.");
+    };
+
+    socket.on("ride-accept-confirmed", handleRideAcceptConfirmed);
+    socket.on("ride-error", handleRideError);
+
+    return () => {
+      socket.off("ride-accept-confirmed", handleRideAcceptConfirmed);
+      socket.off("ride-error", handleRideError);
+    };
+  }, [socket, navigate, activeRideRequest]);
 
   const handleDeclineRide = () => {
     setActiveRideRequest(null);
