@@ -1,12 +1,9 @@
 import userModel from "../models/user.model.js";
 import sessionModel from "../models/session.model.js";
 import captainModel from "../models/captain.model.js";
-import otpModel from "../models/otp.model.js";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import config from "../config/config.js";
-import { sendEmail } from "../services/email.service.js";
-import { generateOtp, getOtpHtml } from "../utils/utils.js";
 
 // Helper: Check both collections for user or captain
 async function findAccountById(id) {
@@ -18,7 +15,6 @@ async function findAccountById(id) {
 }
 
 // REGISTER USER
-
 export async function registerUser(req, res) {
   try {
     const { username, email, password } = req.body;
@@ -29,88 +25,45 @@ export async function registerUser(req, res) {
       });
     }
 
-    // Check whether this username or email already exists.
-    let user = await userModel.findOne({
+    // Check whether username or email already exists.
+    const existingUser = await userModel.findOne({
       $or: [{ username }, { email }],
     });
 
-    if (user) {
-      // Verified users cannot register again.
-      if (
-        user.verified ||
-        user.username !== username ||
-        user.email !== email
-      ) {
-        return res.status(409).json({
-          message: "User is already registered.",
-        });
-      }
-
-      // Existing unverified user: resend a fresh OTP.
-    } else {
-      // Prevent the same username/email being used by a captain.
-      const existingCaptain = await captainModel.findOne({
-        $or: [{ username }, { email }],
-      });
-
-      if (existingCaptain) {
-        return res.status(409).json({
-          message: "Username or email is already in use.",
-        });
-      }
-
-      const hashPassword = crypto
-        .createHash("sha256")
-        .update(password)
-        .digest("hex");
-
-      user = await userModel.create({
-        username,
-        email,
-        password: hashPassword,
+    if (existingUser) {
+      return res.status(409).json({
+        message: "Username or email is already in use.",
       });
     }
 
-    // Invalidate any previous OTP for this account.
-    await otpModel.deleteMany({ user: user._id });
-
-    const otp = generateOtp();
-    const otpHash = crypto
-      .createHash("sha256")
-      .update(otp)
-      .digest("hex");
-
-    await otpModel.create({
-      email: user.email,
-      user: user._id,
-      otpHash,
+    // Prevent username/email conflicts with captains.
+    const existingCaptain = await captainModel.findOne({
+      $or: [{ username }, { email }],
     });
 
-    try {
-      const html = getOtpHtml(otp);
-
-      await sendEmail(
-        user.email,
-        "OTP Verification",
-        `Your OTP code is ${otp}`,
-        html
-      );
-    } catch (emailError) {
-      console.error("User OTP delivery failed:", emailError.message);
-
-      return res.status(502).json({
-        message:
-          "Your account is saved but email delivery failed. Please try registering again to request a new OTP.",
-        email: user.email,
-        verified: false,
+    if (existingCaptain) {
+      return res.status(409).json({
+        message: "Username or email is already in use.",
       });
     }
 
-    return res.status(200).json({
-      message: "OTP sent successfully. Please verify your email.",
+    // Hash password using your existing logic.
+    const hashPassword = crypto
+      .createHash("sha256")
+      .update(password)
+      .digest("hex");
+
+    // Create the user directly — no OTP or email.
+    const user = await userModel.create({
+      username,
+      email,
+      password: hashPassword,
+    });
+
+    return res.status(201).json({
+      message: "User registered successfully.",
       username: user.username,
       email: user.email,
-      verified: user.verified,
     });
   } catch (error) {
     console.error("User registration error:", error);
@@ -145,87 +98,47 @@ export async function registerCaptain(req, res) {
       });
     }
 
-    // Check if this username or email already exists.
-    let captain = await captainModel.findOne({
+    // Check whether username or email already exists.
+    const existingCaptain = await captainModel.findOne({
       $or: [{ username }, { email }],
     });
 
-    if (captain) {
-      // Only allow a retry for the same, unverified captain.
-      if (
-        captain.verified ||
-        captain.username !== username ||
-        captain.email !== email
-      ) {
-        return res.status(409).json({
-          message: "Captain is already registered.",
-        });
-      }
-
-      // Existing unverified account: issue a fresh OTP.
-    } else {
-      // Check whether a rider already uses this username or email.
-      const existingUser = await userModel.findOne({
-        $or: [{ username }, { email }],
-      });
-
-      if (existingUser) {
-        return res.status(409).json({
-          message: "Username or email is already in use.",
-        });
-      }
-
-      const hashPassword = crypto
-        .createHash("sha256")
-        .update(password)
-        .digest("hex");
-
-      captain = await captainModel.create({
-        username,
-        email,
-        password: hashPassword,
-        vehicle,
-        role: "captain",
+    if (existingCaptain) {
+      return res.status(409).json({
+        message: "Username or email is already in use.",
       });
     }
 
-    // Replace any previous OTP for this captain.
-    await otpModel.deleteMany({ user: captain._id });
-
-    const otp = generateOtp();
-    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
-
-    await otpModel.create({
-      email: captain.email,
-      user: captain._id,
-      otpHash,
+    // Prevent username/email conflicts with riders.
+    const existingUser = await userModel.findOne({
+      $or: [{ username }, { email }],
     });
 
-    try {
-      const html = getOtpHtml(otp);
-
-      await sendEmail(
-        captain.email,
-        "Captain OTP Verification",
-        `Your OTP code is ${otp}`,
-        html,
-      );
-    } catch (emailError) {
-      console.error("Captain OTP delivery failed:", emailError.message);
-
-      return res.status(502).json({
-        message:
-          "Your account is saved but email delivery failed. Please try registering again to request a new OTP.",
-        email: captain.email,
-        verified: false,
+    if (existingUser) {
+      return res.status(409).json({
+        message: "Username or email is already in use.",
       });
     }
 
-    return res.status(200).json({
-      message: "OTP sent successfully. Please verify your email.",
+    // Hash password using your existing logic.
+    const hashPassword = crypto
+      .createHash("sha256")
+      .update(password)
+      .digest("hex");
+
+    // Create captain directly — no OTP or email.
+    const captain = await captainModel.create({
+      username,
+      email,
+      password: hashPassword,
+      vehicle,
+      role: "captain",
+    });
+
+    return res.status(201).json({
+      message: "Captain registered successfully.",
       username: captain.username,
       email: captain.email,
-      verified: captain.verified,
     });
   } catch (error) {
     console.error("Captain registration error:", error);
@@ -468,35 +381,3 @@ export async function logoutAll(req, res) {
     .json({ message: "Logged out from all devices successfully" });
 }
 
-// VERIFY EMAIL
-export async function verifyEmail(req, res) {
-  const { otp, email } = req.body;
-  const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
-
-  const otpDoc = await otpModel.findOne({ email, otpHash });
-  if (!otpDoc) return res.status(400).json({ message: "Invalid OTP" });
-
-  let account = await userModel.findByIdAndUpdate(
-    otpDoc.user,
-    { verified: true },
-    { new: true },
-  );
-  if (!account) {
-    account = await captainModel.findByIdAndUpdate(
-      otpDoc.user,
-      { verified: true },
-      { new: true },
-    );
-  }
-
-  await otpModel.deleteMany({ user: otpDoc.user });
-
-  return res.status(200).json({
-    message: "Email verified successfully",
-    user: {
-      username: account.username,
-      email: account.email,
-      verified: account.verified,
-    },
-  });
-}

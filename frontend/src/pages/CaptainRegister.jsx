@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../services/Api";
@@ -8,7 +9,6 @@ import {
   FaEye,
   FaEyeSlash,
   FaArrowLeft,
-  FaKey,
   FaCarAlt,
   FaPalette,
   FaHashtag,
@@ -29,10 +29,6 @@ const CaptainRegister = () => {
   const [capacity, setCapacity] = useState(4);
   const [vehicleType, setVehicleType] = useState("car");
 
-  // OTP Verification State
-  const [isOtpStep, setIsOtpStep] = useState(false);
-  const [otp, setOtp] = useState("");
-
   // UI States
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -40,7 +36,7 @@ const CaptainRegister = () => {
 
   const navigate = useNavigate();
 
-  // STEP 1: Register Captain
+  // REGISTER CAPTAIN
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
@@ -61,34 +57,10 @@ const CaptainRegister = () => {
       });
 
       if (response.status === 201) {
-        setSuccessMsg("Captain registered! Check your email for the OTP code.");
-        setIsOtpStep(true);
-      }
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Registration failed. Check vehicle details.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+        setSuccessMsg(
+          "Captain registered successfully! Redirecting to login..."
+        );
 
-  // STEP 2: Verify Email OTP (Using POST)
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault();
-    setError("");
-    setSuccessMsg("");
-    setLoading(true);
-
-    try {
-      const response = await api.post("/auth/verify-email", {
-        email,
-        otp,
-      });
-
-      if (response.status === 200) {
-        setSuccessMsg("Email verified successfully! Redirecting to login...");
         setTimeout(() => {
           navigate("/captain-login");
         }, 1500);
@@ -96,7 +68,7 @@ const CaptainRegister = () => {
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Invalid or expired OTP. Please try again.",
+          "Registration failed. Check vehicle details."
       );
     } finally {
       setLoading(false);
@@ -131,19 +103,15 @@ const CaptainRegister = () => {
           {/* Header Title */}
           <div className="flex flex-col gap-2 mb-8">
             <div className="w-12 h-12 bg-[#FCF6F5] border border-[#111111]/5 rounded-2xl flex items-center justify-center text-[#990011] mb-2 shadow-xs">
-              {isOtpStep ? (
-                <FaKey className="text-xl" />
-              ) : (
-                <TbSteeringWheelFilled className="text-xl" />
-              )}
+              <TbSteeringWheelFilled className="text-xl" />
             </div>
+
             <h2 className="text-2xl font-black tracking-tight text-[#111111]">
-              {isOtpStep ? "Verify Captain Email" : "Register as a Captain"}
+              Register as a Captain
             </h2>
+
             <p className="text-xs font-medium text-zinc-500">
-              {isOtpStep
-                ? `Enter the 6-digit OTP code sent to ${email}`
-                : "Enter your personal and vehicle details to start driving with Uber."}
+              Enter your personal and vehicle details to start driving with Uber.
             </p>
           </div>
 
@@ -163,230 +131,185 @@ const CaptainRegister = () => {
             </div>
           )}
 
-          {!isOtpStep ? (
-            /* STEP 1: Registration Form */
-            <form onSubmit={handleRegister} className="flex flex-col gap-4">
-              {/* Account Details Header */}
-              <span className="text-xs font-black text-[#990011] uppercase tracking-wider">
-                Account Info
-              </span>
+          {/* Registration Form */}
+          <form onSubmit={handleRegister} className="flex flex-col gap-4">
+            {/* Account Details Header */}
+            <span className="text-xs font-black text-[#990011] uppercase tracking-wider">
+              Account Info
+            </span>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Username */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#111111]">
-                    Username
-                  </label>
-                  <div className="relative flex items-center">
-                    <FaUser className="absolute left-3.5 text-zinc-400 text-xs" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="alex_driver"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-xs text-[#111111] font-medium pl-10 pr-3 py-3 rounded-2xl placeholder:text-zinc-400"
-                    />
-                  </div>
-                </div>
-
-                {/* Email */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#111111]">
-                    Email
-                  </label>
-                  <div className="relative flex items-center">
-                    <FaEnvelope className="absolute left-3.5 text-zinc-400 text-xs" />
-                    <input
-                      type="email"
-                      required
-                      placeholder="alex@driver.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-xs text-[#111111] font-medium pl-10 pr-3 py-3 rounded-2xl placeholder:text-zinc-400"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Password */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Username */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-[#111111]">
-                  Password
+                  Username
                 </label>
                 <div className="relative flex items-center">
-                  <FaLock className="absolute left-3.5 text-zinc-400 text-xs" />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-xs text-[#111111] font-medium pl-10 pr-10 py-3 rounded-2xl placeholder:text-zinc-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 text-zinc-400 hover:text-[#990011] text-xs transition-colors"
-                  >
-                    {showPassword ? <FaEyeSlash /> : <FaEye />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Vehicle Details Header */}
-              <span className="text-xs font-black text-[#990011] uppercase tracking-wider mt-2">
-                Vehicle Info
-              </span>
-
-              <div className="grid grid-cols-2 gap-3">
-                {/* Vehicle Color */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#111111]">
-                    Color
-                  </label>
-                  <div className="relative flex items-center">
-                    <FaPalette className="absolute left-3.5 text-zinc-400 text-xs" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="Black"
-                      value={color}
-                      onChange={(e) => setColor(e.target.value)}
-                      className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-xs text-[#111111] font-medium pl-10 pr-3 py-3 rounded-2xl placeholder:text-zinc-400"
-                    />
-                  </div>
-                </div>
-
-                {/* License Plate */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#111111]">
-                    License Plate
-                  </label>
-                  <div className="relative flex items-center">
-                    <FaHashtag className="absolute left-3.5 text-zinc-400 text-xs" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="MH02AB1234"
-                      value={plate}
-                      onChange={(e) => setPlate(e.target.value)}
-                      className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-xs text-[#111111] font-bold uppercase pl-10 pr-3 py-3 rounded-2xl placeholder:normal-case placeholder:font-medium placeholder:text-zinc-400"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                {/* Passenger Capacity */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#111111]">
-                    Capacity
-                  </label>
-                  <div className="relative flex items-center">
-                    <FaUsers className="absolute left-3.5 text-zinc-400 text-xs" />
-                    <input
-                      type="number"
-                      min={1}
-                      max={8}
-                      required
-                      value={capacity}
-                      onChange={(e) => setCapacity(e.target.value)}
-                      className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-xs text-[#111111] font-bold pl-10 pr-3 py-3 rounded-2xl"
-                    />
-                  </div>
-                </div>
-
-                {/* Vehicle Type */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#111111]">
-                    Vehicle Type
-                  </label>
-                  <div className="relative flex items-center">
-                    <FaCarAlt className="absolute left-3.5 text-zinc-400 text-xs" />
-                    <select
-                      value={vehicleType}
-                      onChange={(e) => setVehicleType(e.target.value)}
-                      className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-xs text-[#111111] font-bold pl-10 pr-3 py-3 rounded-2xl appearance-none"
-                    >
-                      <option value="car">Car</option>
-                      <option value="auto">Auto</option>
-                      <option value="moto">Moto (Bike)</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-[#111111] text-[#FCF6F5] font-bold text-sm py-3.5 rounded-2xl hover:bg-[#990011] transition-colors mt-3 flex justify-center items-center gap-2 disabled:opacity-50 shadow-xs"
-              >
-                {loading ? (
-                  <span className="w-5 h-5 border-2 border-[#FCF6F5] border-t-transparent rounded-full animate-spin"></span>
-                ) : (
-                  "Sign Up as Captain"
-                )}
-              </button>
-            </form>
-          ) : (
-            /* STEP 2: OTP Verification Form */
-            <form onSubmit={handleVerifyOtp} className="flex flex-col gap-5">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[#111111]">
-                  6-Digit OTP Code
-                </label>
-                <div className="relative flex items-center">
-                  <FaKey className="absolute left-4 text-zinc-400 text-sm" />
+                  <FaUser className="absolute left-3.5 text-zinc-400 text-xs" />
                   <input
                     type="text"
                     required
-                    maxLength={6}
-                    placeholder="123456"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-center font-mono tracking-widest text-lg text-[#111111] font-bold pl-11 pr-4 py-3 rounded-2xl transition-all placeholder:text-zinc-300"
+                    placeholder="alex_driver"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-xs text-[#111111] font-medium pl-10 pr-3 py-3 rounded-2xl placeholder:text-zinc-400"
                   />
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-[#990011] text-white font-bold text-sm py-3.5 rounded-2xl hover:bg-[#7a000e] transition-colors flex justify-center items-center gap-2 disabled:opacity-50 shadow-xs"
-              >
-                {loading ? (
-                  <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                ) : (
-                  "Verify Email"
-                )}
-              </button>
+              {/* Email */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-[#111111]">
+                  Email
+                </label>
+                <div className="relative flex items-center">
+                  <FaEnvelope className="absolute left-3.5 text-zinc-400 text-xs" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="alex@driver.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-xs text-[#111111] font-medium pl-10 pr-3 py-3 rounded-2xl placeholder:text-zinc-400"
+                  />
+                </div>
+              </div>
+            </div>
 
-              <button
-                type="button"
-                onClick={() => setIsOtpStep(false)}
-                className="text-xs font-bold text-zinc-500 hover:text-[#990011] text-center transition-colors"
-              >
-                ← Back to registration details
-              </button>
-            </form>
-          )}
+            {/* Password */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-[#111111]">
+                Password
+              </label>
+              <div className="relative flex items-center">
+                <FaLock className="absolute left-3.5 text-zinc-400 text-xs" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-xs text-[#111111] font-medium pl-10 pr-10 py-3 rounded-2xl placeholder:text-zinc-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 text-zinc-400 hover:text-[#990011] text-xs transition-colors"
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              </div>
+            </div>
+
+            {/* Vehicle Details Header */}
+            <span className="text-xs font-black text-[#990011] uppercase tracking-wider mt-2">
+              Vehicle Info
+            </span>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Vehicle Color */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-[#111111]">
+                  Color
+                </label>
+                <div className="relative flex items-center">
+                  <FaPalette className="absolute left-3.5 text-zinc-400 text-xs" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Black"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-xs text-[#111111] font-medium pl-10 pr-3 py-3 rounded-2xl placeholder:text-zinc-400"
+                  />
+                </div>
+              </div>
+
+              {/* License Plate */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-[#111111]">
+                  License Plate
+                </label>
+                <div className="relative flex items-center">
+                  <FaHashtag className="absolute left-3.5 text-zinc-400 text-xs" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="MH02AB1234"
+                    value={plate}
+                    onChange={(e) => setPlate(e.target.value)}
+                    className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-xs text-[#111111] font-bold uppercase pl-10 pr-3 py-3 rounded-2xl placeholder:normal-case placeholder:font-medium placeholder:text-zinc-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Passenger Capacity */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-[#111111]">
+                  Capacity
+                </label>
+                <div className="relative flex items-center">
+                  <FaUsers className="absolute left-3.5 text-zinc-400 text-xs" />
+                  <input
+                    type="number"
+                    min={1}
+                    max={8}
+                    required
+                    value={capacity}
+                    onChange={(e) => setCapacity(e.target.value)}
+                    className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-xs text-[#111111] font-bold pl-10 pr-3 py-3 rounded-2xl"
+                  />
+                </div>
+              </div>
+
+              {/* Vehicle Type */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-[#111111]">
+                  Vehicle Type
+                </label>
+                <div className="relative flex items-center">
+                  <FaCarAlt className="absolute left-3.5 text-zinc-400 text-xs" />
+                  <select
+                    value={vehicleType}
+                    onChange={(e) => setVehicleType(e.target.value)}
+                    className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-xs text-[#111111] font-bold pl-10 pr-3 py-3 rounded-2xl appearance-none"
+                  >
+                    <option value="car">Car</option>
+                    <option value="auto">Auto</option>
+                    <option value="moto">Moto (Bike)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[#111111] text-[#FCF6F5] font-bold text-sm py-3.5 rounded-2xl hover:bg-[#990011] transition-colors mt-3 flex justify-center items-center gap-2 disabled:opacity-50 shadow-xs"
+            >
+              {loading ? (
+                <span className="w-5 h-5 border-2 border-[#FCF6F5] border-t-transparent rounded-full animate-spin"></span>
+              ) : (
+                "Sign Up as Captain"
+              )}
+            </button>
+          </form>
 
           {/* Footer Navigation Link */}
-          {!isOtpStep && (
-            <div className="mt-8 pt-6 border-t border-[#111111]/10 text-center">
-              <p className="text-xs font-medium text-zinc-500">
-                Already registered as a Captain?{" "}
-                <Link
-                  to="/captain-login"
-                  className="text-[#990011] font-bold underline underline-offset-4 hover:text-[#7a000e] transition-colors"
-                >
-                  Log in here
-                </Link>
-              </p>
-            </div>
-          )}
+          <div className="mt-8 pt-6 border-t border-[#111111]/10 text-center">
+            <p className="text-xs font-medium text-zinc-500">
+              Already registered as a Captain?{" "}
+              <Link
+                to="/captain-login"
+                className="text-[#990011] font-bold underline underline-offset-4 hover:text-[#7a000e] transition-colors"
+              >
+                Log in here
+              </Link>
+            </p>
+          </div>
         </div>
       </main>
 
