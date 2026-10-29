@@ -3,8 +3,10 @@ import { io } from "socket.io-client";
 
 export const SocketContext = createContext();
 
+const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
 // Make sure port 3000 matches your backend port in config.PORT
-const socket = io("http://localhost:3000", {
+const socket = io(BACKEND_URL, {
   autoConnect: true,
   withCredentials: true,
 });

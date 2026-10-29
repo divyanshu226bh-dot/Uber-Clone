@@ -18,15 +18,22 @@ try {
   console.log("Database connected successfully");
 } catch (error) {
   console.error("Error connecting to database:", error);
+  process.exit(1);
 }
 
+const PORT = process.env.PORT || config.PORT || 3000;
 // 1. Wrap Express app with HTTP server
 const server = http.createServer(app);
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  config.CLIENT_URL,
+].filter(Boolean);
 
 // 2. Initialize Socket.io instance
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://localhost:3000"], // Adjust if your Vite frontend runs on a different port
+    origin: allowedOrigins, // Adjust if your Vite frontend runs on a different port
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -593,6 +600,6 @@ io.on("connection", (socket) => {
 });
 
 // 4. Start HTTP Server
-server.listen(config.PORT, () => {
-  console.log(`Backend is running at port ${config.PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Backend is running at port ${PORT}`);
 });
