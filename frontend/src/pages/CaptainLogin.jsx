@@ -28,7 +28,7 @@ const CaptainLogin = () => {
 
     try {
       const response = await api.post(
-        "http://localhost:3000/api/auth/login-captain",
+        "/auth/login-captain",
         { email, password },
         { withCredentials: true },
       );

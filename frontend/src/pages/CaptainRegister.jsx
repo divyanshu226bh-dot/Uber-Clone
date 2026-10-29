@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import api from '../services/Api';
+import api from "../services/Api";
 import {
   FaUser,
   FaEnvelope,
@@ -48,20 +48,17 @@ const CaptainRegister = () => {
     setLoading(true);
 
     try {
-      const response = await api.post(
-        "http://localhost:3000/api/auth/register-captain",
-        {
-          username,
-          email,
-          password,
-          vehicle: {
-            color,
-            plate,
-            capacity: Number(capacity),
-            vehicleType,
-          },
+      const response = await api.post("/auth/register-captain", {
+        username,
+        email,
+        password,
+        vehicle: {
+          color,
+          plate,
+          capacity: Number(capacity),
+          vehicleType,
         },
-      );
+      });
 
       if (response.status === 201) {
         setSuccessMsg("Captain registered! Check your email for the OTP code.");
@@ -85,13 +82,10 @@ const CaptainRegister = () => {
     setLoading(true);
 
     try {
-      const response = await api.post(
-        "http://localhost:3000/api/auth/verify-email",
-        {
-          email,
-          otp,
-        },
-      );
+      const response = await api.post("/auth/verify-email", {
+        email,
+        otp,
+      });
 
       if (response.status === 200) {
         setSuccessMsg("Email verified successfully! Redirecting to login...");

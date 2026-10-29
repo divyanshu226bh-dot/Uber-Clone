@@ -11,7 +11,6 @@ import {
   FaEnvelope,
 } from "react-icons/fa";
 
-
 const UserLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,10 +27,11 @@ const UserLogin = () => {
     setLoading(true);
 
     try {
-      const response = await api.post("http://localhost:3000/api/auth/login", {
-        email,
-        password,
-      });
+      const response = await api.post(
+        "/auth/login",
+        { email, password },
+        { withCredentials: true },
+      );
 
       if (response.status === 200) {
         const { accessToken, id, username, email, role } = response.data;
@@ -51,7 +51,6 @@ const UserLogin = () => {
         localStorage.setItem("user", JSON.stringify(userProfile));
 
         navigate("/home");
-        
       }
     } catch (err) {
       setError(

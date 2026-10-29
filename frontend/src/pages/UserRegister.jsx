@@ -29,7 +29,7 @@ const UserRegister = () => {
     setLoading(true);
 
     try {
-      const response = await api.post('http://localhost:3000/api/auth/register', {
+      const response = await api.post('/auth/register', {
         username,
         email,
         password,
@@ -54,7 +54,7 @@ const UserRegister = () => {
     setLoading(true);
 
     try {
-      const response = await api.post('http://localhost:3000/api/auth/verify-email', {
+      const response = await api.post('/auth/verify-email', {
         email,
         otp,
       });
