@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../services/Api";
+import { useAuth } from "../context/AuthContext.jsx";
 import {
   FaEye,
   FaEyeSlash,
@@ -10,6 +11,7 @@ import {
   FaEnvelope,
 } from "react-icons/fa";
 
+
 const UserLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,6 +20,7 @@ const UserLogin = () => {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
+  const { setUser, setToken } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,14 +36,22 @@ const UserLogin = () => {
       if (response.status === 200) {
         const { accessToken, id, username, email, role } = response.data;
 
-        localStorage.setItem("userAccessToken", accessToken);
+        const userProfile = {
+          _id: id,
+          username,
+          email,
+          role,
+        };
 
-        localStorage.setItem(
-          "user",
-          JSON.stringify({ _id: id, username, email, role }),
-        );
+        // Keep the access token in memory, not localStorage
+        setToken(accessToken);
+        setUser(userProfile);
+
+        // Keep profile data for existing UI components for now
+        localStorage.setItem("user", JSON.stringify(userProfile));
 
         navigate("/home");
+        
       }
     } catch (err) {
       setError(

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../services/Api";
+import { useAuth } from "../context/AuthContext.jsx";
 import {
   FaEye,
   FaEyeSlash,
@@ -18,6 +19,7 @@ const CaptainLogin = () => {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
+  const { setUser, setToken } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,21 +34,22 @@ const CaptainLogin = () => {
       );
 
       if (response.status === 200) {
-        // 1. Extract token and captain profile from server response
-        const { accessToken, captain, user } = response.data;
-        const captainProfile = captain || user || response.data;
+        const { accessToken, id, username, email, role } = response.data;
 
-        // 2. Save access token
-        localStorage.setItem("captainAccessToken", accessToken);
+        const captainProfile = {
+          _id: id,
+          username,
+          email,
+          role,
+        };
 
-        // 3. Save captain object and captainId to localStorage
+        // Keep the access token in memory, not localStorage
+        setToken(accessToken);
+        setUser(captainProfile);
+
+        // Keep profile data for existing UI components for now
         localStorage.setItem("captain", JSON.stringify(captainProfile));
-        if (captainProfile._id || captainProfile.id) {
-          localStorage.setItem(
-            "captainId",
-            captainProfile._id || captainProfile.id,
-          );
-        }
+        localStorage.setItem("captainId", id);
 
         navigate("/captain-home");
       }

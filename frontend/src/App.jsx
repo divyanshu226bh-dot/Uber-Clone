@@ -9,16 +9,9 @@ import CaptainHome from "./pages/CaptainHome";
 import CaptainRegister from "./pages/CaptainRegister";
 import UserProtectWrapper from "./components/UserProtectedWrapper";
 import CaptainProtectWrapper from "./components/CaptainProtectedWrapper";
+import ActiveRideProtectedWrapper from "./components/ActiveRideProtectedWrapper";
 import UserRiding from "./pages/UserRiding";
 import CaptainRiding from "./pages/CaptainRiding";
-
-// // Placeholder components for remaining pages
-// const UserLogin = () => <div className="p-8 text-white bg-black min-h-screen">User Login Page</div>;
-// const UserRegister = () => <div className="p-8 text-white bg-black min-h-screen">User Register Page</div>;
-// const CaptainLogin = () => <div className="p-8 text-white bg-black min-h-screen">Captain Login Page</div>;
-// const CaptainRegister = () => <div className="p-8 text-white bg-black min-h-screen">Captain Register Page</div>;
-// const UserHome = () => <div className="p-8 text-white bg-black min-h-screen">Rider Home Dashboard</div>;
-// const CaptainHome = () => <div className="p-8 text-white bg-black min-h-screen">Captain Home Dashboard</div>;
 
 function App() {
   return (
@@ -26,12 +19,45 @@ function App() {
       <Route path="/" element={<Start />} />
       <Route path="/login" element={<UserLogin />} />
       <Route path="/register" element={<UserRegister />} />
-      <Route path="/home" element={<UserProtectWrapper> <UserHome /> </UserProtectWrapper>} />
-      <Route path="/user-riding" element={<UserProtectWrapper> <UserRiding /> </UserProtectWrapper>} />
+      <Route
+        path="/home"
+        element={
+          <UserProtectWrapper>
+            <UserHome />
+          </UserProtectWrapper>
+        }
+      />
+      <Route
+        path="/user-riding"
+        element={
+          <UserProtectWrapper>
+            <ActiveRideProtectedWrapper role="rider">
+              <UserRiding/>
+            </ActiveRideProtectedWrapper>
+          </UserProtectWrapper>
+        }
+      />
       <Route path="/captain-login" element={<CaptainLogin />} />
       <Route path="/captain-register" element={<CaptainRegister />} />
-      <Route path="/captain-home" element={<CaptainProtectWrapper> <CaptainHome /> </CaptainProtectWrapper>} />
-      <Route path="/captain-riding" element={<CaptainProtectWrapper> <CaptainRiding /> </CaptainProtectWrapper>} />
+      <Route
+        path="/captain-home"
+        element={
+          <CaptainProtectWrapper>
+            {" "}
+            <CaptainHome />{" "}
+          </CaptainProtectWrapper>
+        }
+      />
+      <Route
+        path="/captain-riding"
+        element={
+          <CaptainProtectWrapper>
+            <ActiveRideProtectedWrapper role="captain">
+              <CaptainRiding />
+            </ActiveRideProtectedWrapper>
+          </CaptainProtectWrapper>
+        }
+      />
     </Routes>
   );
 }

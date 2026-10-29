@@ -4,6 +4,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import authRouter from "./src/routes/user.routes.js";
 import mapRouter from "./src/routes/map.routes.js";
+import rideRouter from "./src/routes/ride.routes.js";
 
 const app = express();
 
@@ -20,5 +21,6 @@ app.use(cors({
 
 app.use("/api/auth", authRouter);
 app.use("/api/maps", mapRouter);
+app.use("/api/rides", rideRouter);
 
 export default app;

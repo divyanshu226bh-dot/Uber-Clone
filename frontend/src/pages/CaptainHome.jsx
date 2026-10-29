@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import gsap from "gsap";
+import { useAuth } from "../context/AuthContext.jsx";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import LiveMap from "../components/LiveMap";
 import { SocketContext } from "../context/SocketContext";
@@ -29,11 +30,10 @@ const CaptainHome = () => {
   const navigate = useNavigate();
   const { socket } = useContext(SocketContext);
 
-  // Safely extract captain profile handling flat vs nested localStorage structures
-  const rawCaptainData = JSON.parse(localStorage.getItem("captain") || "{}");
-  const captain = rawCaptainData.captain || rawCaptainData;
-  const captainId =
-    captain._id || captain.id || localStorage.getItem("captainId");
+const { user, setUser, setToken } = useAuth();
+
+const captain = user;
+const captainId = captain?._id || captain?.id;
 
   // Dashboard & Online States
   const [isOnline, setIsOnline] = useState(false);
@@ -186,16 +186,17 @@ const CaptainHome = () => {
   // Logout Handler
   const handleLogout = async () => {
     try {
-      await api.post("/auth/logout-captain");
-    } catch (err) {
-      console.error("Logout failed on server:", err);
+      await api.get("/auth/logout");
+    } catch (error) {
+      console.error("Captain logout request failed.");
     } finally {
-      localStorage.removeItem("captainToken");
-      localStorage.removeItem("token");
-      localStorage.removeItem("captain");
-      localStorage.removeItem("accessToken");
+      setToken(null);
+      setUser(null);
 
-      navigate("/captain-login");
+      localStorage.removeItem("captain");
+      localStorage.removeItem("captainId");
+
+      navigate("/captain-login", { replace: true });
     }
   };
 

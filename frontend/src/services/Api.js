@@ -1,30 +1,64 @@
 import axios from "axios";
+import { getAccessToken, setAccessToken } from "../context/authTokenStore.js";
+
+const API_URL = "http://localhost:3000/api";
 
 const api = axios.create({
-  baseURL: "http://localhost:3000/api",
+  baseURL: API_URL,
   withCredentials: true,
 });
 
-// Decide which token belongs to the current app section.
-const getTokenKey = () => {
-  const path = window.location.pathname;
+// Used to make concurrent 401 requests share one refresh operation.
+let refreshPromise = null;
 
-  if (path.startsWith("/captain")) {
-    return "captainAccessToken";
+export const refreshAccessToken = async () => {
+  if (!refreshPromise) {
+    refreshPromise = axios
+      .get(`${API_URL}/auth/rotate-token`, {
+        withCredentials: true,
+      })
+      .then((response) => {
+        const newToken = response.data.accessToken;
+
+        if (!newToken) {
+          throw new Error("Refresh response did not contain an access token");
+        }
+
+        setAccessToken(newToken);
+        return response.data;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
   }
 
-  return "userAccessToken";
+  return refreshPromise;
 };
 
-// Attach the correct role-specific access token.
+// Routes that should not trigger automatic token refresh.
+const excludedRefreshRoutes = [
+  "/auth/login",
+  "/auth/login-captain",
+  "/auth/register",
+  "/auth/register-captain",
+  "/auth/verify-email",
+  "/auth/rotate-token",
+];
+
+const shouldSkipRefresh = (url = "") =>
+  excludedRefreshRoutes.some((route) => url.includes(route));
+
+// Attach the current in-memory access token to each API request.
 api.interceptors.request.use(
   (config) => {
-    const tokenKey = getTokenKey();
-    const token = localStorage.getItem(tokenKey);
+    const token = getAccessToken();
+
+    config.headers = config.headers || {};
 
     if (token) {
-      config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      delete config.headers.Authorization;
     }
 
     return config;
@@ -32,49 +66,71 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// Refresh the token and retry the failed request.
+// Refresh the access token after an expired-token response.
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
     if (
-      error.response?.status === 401 &&
-      originalRequest &&
-      !originalRequest._retry
+      error.response?.status !== 401 ||
+      !originalRequest ||
+      originalRequest._retry ||
+      shouldSkipRefresh(originalRequest.url)
     ) {
-      originalRequest._retry = true;
-
-      const tokenKey = getTokenKey();
-
-      try {
-        const response = await axios.get(
-          "http://localhost:3000/api/auth/rotate-token",
-          { withCredentials: true },
-        );
-
-        const newAccessToken = response.data.accessToken;
-
-        localStorage.setItem(tokenKey, newAccessToken);
-
-        originalRequest.headers = originalRequest.headers || {};
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-
-        return api(originalRequest);
-      } catch (refreshError) {
-        localStorage.removeItem(tokenKey);
-
-        const isCaptain = tokenKey === "captainAccessToken";
-
-        localStorage.removeItem(isCaptain ? "captain" : "user");
-
-        window.location.href = isCaptain ? "/captain-login" : "/login";
-
-        return Promise.reject(refreshError);
-      }
+      return Promise.reject(error);
     }
 
-    return Promise.reject(error);
+    originalRequest._retry = true;
+
+    try {
+      // All simultaneous failed requests share the same refresh call.
+      // if (!refreshPromise) {
+      //   refreshPromise = axios
+      //     .get(`${API_URL}/auth/rotate-token`, {
+      //       withCredentials: true,
+      //     })
+      //     .then((response) => {
+      //       const newToken = response.data.accessToken;
+
+      //       if (!newToken) {
+      //         throw new Error(
+      //           "Refresh response did not contain an access token",
+      //         );
+      //       }
+
+      //       setAccessToken(newToken);
+
+      //       return newToken;
+      //     })
+      //     .finally(() => {
+      //       refreshPromise = null;
+      //     });
+      // }
+
+      const refreshData = await refreshAccessToken();
+      const newAccessToken = refreshData.accessToken;
+
+      originalRequest.headers = originalRequest.headers || {};
+      originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+
+      return api(originalRequest);
+    } catch (refreshError) {
+      setAccessToken(null);
+
+      const isCaptain = window.location.pathname.startsWith("/captain");
+
+      // Clear the existing profile data.
+      localStorage.removeItem(isCaptain ? "captain" : "user");
+
+      if (isCaptain) {
+        localStorage.removeItem("captainId");
+      }
+
+      window.location.href = isCaptain ? "/captain-login" : "/login";
+
+      return Promise.reject(refreshError);
+    }
   },
 );
 

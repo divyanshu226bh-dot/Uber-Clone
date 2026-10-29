@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
+import api from "../services/Api";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import LiveMap from "../components/LiveMap";
@@ -72,9 +74,8 @@ const UserHome = () => {
   const navigate = useNavigate();
   const { socket } = useContext(SocketContext);
 
-  // User Profile
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const userId = user._id || user.id;
+  const { user, setUser, setToken } = useAuth();
+  const userId = user?._id || user?.id;
 
   // Form, Step & Map State
   const [step, setStep] = useState("home"); // 'home' | 'search' | 'vehicle' | 'searching'
@@ -459,11 +460,17 @@ const UserHome = () => {
       socket.off("ride-error", handleRideError);
     };
   }, [socket]);
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await api.get("/auth/logout");
+    } catch (error) {
+      console.error("Rider logout request failed.");
+    } finally {
+      setToken(null);
+      setUser(null);
+      localStorage.removeItem("user");
+      navigate("/login", { replace: true });
+    }
   };
 
   const quickDestinations = [

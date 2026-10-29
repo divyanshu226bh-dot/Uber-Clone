@@ -235,6 +235,7 @@ export async function rotateToken(req, res) {
 
   res.status(200).json({
     message: "Token Rotated Successfully",
+    id: account._id,
     username: account.username,
     email: account.email,
     role,

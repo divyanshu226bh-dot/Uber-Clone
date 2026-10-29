@@ -37,7 +37,7 @@ const UserRiding = () => {
   const [captainLocation, setCaptainLocation] = useState(null);
   const [locationReceived, setLocationReceived] = useState(false);
   const [rideOtp, setRideOtp] = useState(ride?.otp || "");
-  const [rideStatus, setRideStatus] = useState(ride?.status || "accepted");
+  const [rideStatus, setRideStatus] = useState(ride?.status || "");
   const [routePositions, setRoutePositions] = useState([]);
   const [routeError, setRouteError] = useState(false);
   const redirectTimer = useRef(null);

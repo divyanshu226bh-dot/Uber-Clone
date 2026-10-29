@@ -1,39 +1,74 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { createContext, useContext, useState, useEffect } from "react";
+
+import {
+  getAccessToken,
+  setAccessToken,
+  subscribeToAccessToken,
+} from "./authTokenStore.js";
+
+import { refreshAccessToken } from "../services/Api.js"
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null); // Access token stored ONLY in memory
+  const [token, setTokenState] = useState(getAccessToken);
   const [loading, setLoading] = useState(true);
 
-  // On initial app load/refresh, use the httpOnly refresh cookie to get a new access token
+  const updateToken = (newToken) => {
+    setAccessToken(newToken);
+    setTokenState(newToken || null);
+  };
+
   useEffect(() => {
+    const unsubscribe = subscribeToAccessToken(setTokenState);
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
     const initAuth = async () => {
       try {
-        const res = await axios.post(
-          'http://localhost:3000/api/auth/rotate-token',
-          {},
-          { withCredentials: true }
-        );
-        if (res.status === 200) {
-          setToken(res.data.accessToken);
-          setUser({ username: res.data.username, email: res.data.email, role: res.data.role });
-        }
-      } catch (err) {
-        setToken(null);
+        const data = await refreshAccessToken();
+
+        if (cancelled) return;
+
+        setUser({
+          _id: data.id,
+          username: data.username,
+          email: data.email,
+          role: data.role,
+        });
+      } catch {
+        if (cancelled) return;
+
+        updateToken(null);
         setUser(null);
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     initAuth();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, setUser, token, setToken, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        setUser,
+        token,
+        setToken: updateToken,
+        loading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
