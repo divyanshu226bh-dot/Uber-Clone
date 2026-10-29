@@ -30,10 +30,10 @@ const CaptainHome = () => {
   const navigate = useNavigate();
   const { socket } = useContext(SocketContext);
 
-const { user, setUser, setToken } = useAuth();
+  const { user, setUser, setToken } = useAuth();
 
-const captain = user;
-const captainId = captain?._id || captain?.id;
+  const captain = user;
+  const captainId = captain?._id || captain?.id;
 
   // Dashboard & Online States
   const [isOnline, setIsOnline] = useState(false);
@@ -51,17 +51,27 @@ const captainId = captain?._id || captain?.id;
 
   // 1. Join Captain Socket Room on Mount
   useEffect(() => {
-    if (captainId && socket) {
-      console.log("⚡ Joining socket room for captain:", captainId);
+    if (!captainId || !socket) return;
+
+    const joinCaptainRoom = () => {
       socket.emit("join", {
         userType: "captain",
         userId: captainId,
       });
-    } else {
-      console.warn(
-        "⚠️ Cannot join socket room: Missing captainId or socket connection.",
-      );
+      console.log("Captain room joined:", captainId);
+    };
+
+    // Join immediately if already connected
+    if (socket.connected) {
+      joinCaptainRoom();
     }
+
+    // Rejoin whenever the socket reconnects
+    socket.on("connect", joinCaptainRoom);
+
+    return () => {
+      socket.off("connect", joinCaptainRoom);
+    };
   }, [captainId, socket]);
 
   // 2. Stream Real-Time Geolocation when Online

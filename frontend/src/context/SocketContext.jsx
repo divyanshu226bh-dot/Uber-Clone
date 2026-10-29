@@ -37,6 +37,24 @@ export const SocketProvider = ({ children }) => {
   return (
     <SocketContext.Provider value={{ socket, isConnected }}>
       {children}
+
+      <div
+        style={{
+          position: "fixed",
+          bottom: 10,
+          right: 10,
+          zIndex: 99999,
+          background: isConnected ? "#166534" : "#991b1b",
+          color: "white",
+          padding: "10px 14px",
+          borderRadius: 8,
+          fontSize: 12,
+          fontWeight: "bold",
+          boxShadow: "0 2px 10px #0003",
+        }}
+      >
+        Socket: {isConnected ? "CONNECTED" : "DISCONNECTED"}
+      </div>
     </SocketContext.Provider>
   );
 };

@@ -48,7 +48,7 @@ const ActiveRideProtectedWrapper = ({ role, children }) => {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, token, user, role]);
+  }, [authLoading, token, user?._id, user?.id, user?.role, role]);
 
   if (authLoading) {
     return <div className="p-6">Checking authentication...</div>;
@@ -56,10 +56,7 @@ const ActiveRideProtectedWrapper = ({ role, children }) => {
 
   if (!token || !user) {
     return (
-      <Navigate
-        to={role === "rider" ? "/login" : "/captain-login"}
-        replace
-      />
+      <Navigate to={role === "rider" ? "/login" : "/captain-login"} replace />
     );
   }
 
@@ -77,11 +74,15 @@ const ActiveRideProtectedWrapper = ({ role, children }) => {
   }
 
   if (checkFailed) {
-    return <Navigate to={role === "rider" ? "/home" : "/captain-home"} replace />;
+    return (
+      <Navigate to={role === "rider" ? "/home" : "/captain-home"} replace />
+    );
   }
 
   if (!hasActiveRide) {
-    return <Navigate to={role === "rider" ? "/home" : "/captain-home"} replace />;
+    return (
+      <Navigate to={role === "rider" ? "/home" : "/captain-home"} replace />
+    );
   }
 
   return children;
