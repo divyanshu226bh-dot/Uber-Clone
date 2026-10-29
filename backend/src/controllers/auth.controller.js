@@ -18,81 +18,222 @@ async function findAccountById(id) {
 }
 
 // REGISTER USER
+
 export async function registerUser(req, res) {
-  const { username, email, password } = req.body;
+  try {
+    const { username, email, password } = req.body;
 
-  const isRegisteredBefore = await userModel.findOne({
-    $or: [{ username }, { email }],
-  });
+    if (!username || !email || !password) {
+      return res.status(400).json({
+        message: "Username, email, and password are required.",
+      });
+    }
 
-  if (isRegisteredBefore) {
-    return res.status(409).json({ message: "User is already registered" });
+    // Check whether this username or email already exists.
+    let user = await userModel.findOne({
+      $or: [{ username }, { email }],
+    });
+
+    if (user) {
+      // Verified users cannot register again.
+      if (
+        user.verified ||
+        user.username !== username ||
+        user.email !== email
+      ) {
+        return res.status(409).json({
+          message: "User is already registered.",
+        });
+      }
+
+      // Existing unverified user: resend a fresh OTP.
+    } else {
+      // Prevent the same username/email being used by a captain.
+      const existingCaptain = await captainModel.findOne({
+        $or: [{ username }, { email }],
+      });
+
+      if (existingCaptain) {
+        return res.status(409).json({
+          message: "Username or email is already in use.",
+        });
+      }
+
+      const hashPassword = crypto
+        .createHash("sha256")
+        .update(password)
+        .digest("hex");
+
+      user = await userModel.create({
+        username,
+        email,
+        password: hashPassword,
+      });
+    }
+
+    // Invalidate any previous OTP for this account.
+    await otpModel.deleteMany({ user: user._id });
+
+    const otp = generateOtp();
+    const otpHash = crypto
+      .createHash("sha256")
+      .update(otp)
+      .digest("hex");
+
+    await otpModel.create({
+      email: user.email,
+      user: user._id,
+      otpHash,
+    });
+
+    try {
+      const html = getOtpHtml(otp);
+
+      await sendEmail(
+        user.email,
+        "OTP Verification",
+        `Your OTP code is ${otp}`,
+        html
+      );
+    } catch (emailError) {
+      console.error("User OTP delivery failed:", emailError.message);
+
+      return res.status(502).json({
+        message:
+          "Your account is saved but email delivery failed. Please try registering again to request a new OTP.",
+        email: user.email,
+        verified: false,
+      });
+    }
+
+    return res.status(200).json({
+      message: "OTP sent successfully. Please verify your email.",
+      username: user.username,
+      email: user.email,
+      verified: user.verified,
+    });
+  } catch (error) {
+    console.error("User registration error:", error);
+
+    return res.status(500).json({
+      message: "User registration failed. Please try again.",
+    });
   }
-
-  const hashPassword = crypto.createHash("sha256").update(password).digest("hex");
-
-  const user = await userModel.create({
-    username,
-    email,
-    password: hashPassword,
-  });
-
-  const otp = generateOtp();
-  const html = getOtpHtml(otp);
-  const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
-
-  await otpModel.create({ email, user: user._id, otpHash });
-  await sendEmail(email, "OTP Verification", `Your OTP code is ${otp}`, html);
-
-  res.status(201).json({
-    message: "User registered successfully",
-    username,
-    email,
-    verified: user.verified,
-  });
 }
 
 // REGISTER CAPTAIN
 export async function registerCaptain(req, res) {
-  const { username, email, password, vehicle } = req.body;
+  try {
+    const { username, email, password, vehicle } = req.body;
 
-  if (!vehicle || !vehicle.color || !vehicle.plate || !vehicle.capacity || !vehicle.vehicleType) {
-    return res.status(400).json({
-      message: "Vehicle color, plate, capacity, and vehicleType are required.",
+    if (!username || !email || !password) {
+      return res.status(400).json({
+        message: "Username, email, and password are required.",
+      });
+    }
+
+    if (
+      !vehicle ||
+      !vehicle.color ||
+      !vehicle.plate ||
+      !vehicle.capacity ||
+      !vehicle.vehicleType
+    ) {
+      return res.status(400).json({
+        message:
+          "Vehicle color, plate, capacity, and vehicleType are required.",
+      });
+    }
+
+    // Check if this username or email already exists.
+    let captain = await captainModel.findOne({
+      $or: [{ username }, { email }],
+    });
+
+    if (captain) {
+      // Only allow a retry for the same, unverified captain.
+      if (
+        captain.verified ||
+        captain.username !== username ||
+        captain.email !== email
+      ) {
+        return res.status(409).json({
+          message: "Captain is already registered.",
+        });
+      }
+
+      // Existing unverified account: issue a fresh OTP.
+    } else {
+      // Check whether a rider already uses this username or email.
+      const existingUser = await userModel.findOne({
+        $or: [{ username }, { email }],
+      });
+
+      if (existingUser) {
+        return res.status(409).json({
+          message: "Username or email is already in use.",
+        });
+      }
+
+      const hashPassword = crypto
+        .createHash("sha256")
+        .update(password)
+        .digest("hex");
+
+      captain = await captainModel.create({
+        username,
+        email,
+        password: hashPassword,
+        vehicle,
+        role: "captain",
+      });
+    }
+
+    // Replace any previous OTP for this captain.
+    await otpModel.deleteMany({ user: captain._id });
+
+    const otp = generateOtp();
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+
+    await otpModel.create({
+      email: captain.email,
+      user: captain._id,
+      otpHash,
+    });
+
+    try {
+      const html = getOtpHtml(otp);
+
+      await sendEmail(
+        captain.email,
+        "Captain OTP Verification",
+        `Your OTP code is ${otp}`,
+        html,
+      );
+    } catch (emailError) {
+      console.error("Captain OTP delivery failed:", emailError.message);
+
+      return res.status(502).json({
+        message:
+          "Your account is saved but email delivery failed. Please try registering again to request a new OTP.",
+        email: captain.email,
+        verified: false,
+      });
+    }
+
+    return res.status(200).json({
+      message: "OTP sent successfully. Please verify your email.",
+      username: captain.username,
+      email: captain.email,
+      verified: captain.verified,
+    });
+  } catch (error) {
+    console.error("Captain registration error:", error);
+
+    return res.status(500).json({
+      message: "Captain registration failed. Please try again.",
     });
   }
-
-  const isRegisteredBefore = await captainModel.findOne({
-    $or: [{ username }, { email }],
-  });
-
-  if (isRegisteredBefore) {
-    return res.status(409).json({ message: "Captain is already registered" });
-  }
-
-  const hashPassword = crypto.createHash("sha256").update(password).digest("hex");
-
-  const captain = await captainModel.create({
-    username,
-    email,
-    password: hashPassword,
-    vehicle,
-    role: "captain",
-  });
-
-  const otp = generateOtp();
-  const html = getOtpHtml(otp);
-  const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
-
-  await otpModel.create({ email, user: captain._id, otpHash });
-  await sendEmail(email, "Captain OTP Verification", `Your OTP code is ${otp}`, html);
-
-  res.status(201).json({
-    message: "Captain registered successfully. Please verify OTP.",
-    username,
-    email,
-    verified: captain.verified,
-  });
 }
 
 // LOGIN CAPTAIN
@@ -100,16 +241,28 @@ export async function loginCaptain(req, res) {
   const { email, password } = req.body;
 
   const captain = await captainModel.findOne({ email });
-  if (!captain) return res.status(401).json({ message: "Captain not registered" });
-  if (!captain.verified) return res.status(401).json({ message: "Email not verified" });
+  if (!captain)
+    return res.status(401).json({ message: "Captain not registered" });
+  if (!captain.verified)
+    return res.status(401).json({ message: "Email not verified" });
 
-  const passwordHash = crypto.createHash("sha256").update(password).digest("hex");
+  const passwordHash = crypto
+    .createHash("sha256")
+    .update(password)
+    .digest("hex");
   if (captain.password !== passwordHash) {
     return res.status(401).json({ message: "Invalid password" });
   }
 
-  const refreshToken = jwt.sign({ id: captain._id, role: "captain" }, config.JWT_SECRET, { expiresIn: "7d" });
-  const refreshTokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex");
+  const refreshToken = jwt.sign(
+    { id: captain._id, role: "captain" },
+    config.JWT_SECRET,
+    { expiresIn: "7d" },
+  );
+  const refreshTokenHash = crypto
+    .createHash("sha256")
+    .update(refreshToken)
+    .digest("hex");
 
   await sessionModel.create({
     user: captain._id,
@@ -118,7 +271,11 @@ export async function loginCaptain(req, res) {
     userAgent: req.headers["user-agent"],
   });
 
-  const accessToken = jwt.sign({ id: captain._id, role: "captain" }, config.JWT_SECRET, { expiresIn: "10m" });
+  const accessToken = jwt.sign(
+    { id: captain._id, role: "captain" },
+    config.JWT_SECRET,
+    { expiresIn: "10m" },
+  );
 
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
@@ -143,15 +300,26 @@ export async function login(req, res) {
 
   const user = await userModel.findOne({ email });
   if (!user) return res.status(401).json({ message: "User not registered" });
-  if (!user.verified) return res.status(401).json({ message: "Email not verified" });
+  if (!user.verified)
+    return res.status(401).json({ message: "Email not verified" });
 
-  const passwordHash = crypto.createHash("sha256").update(password).digest("hex");
+  const passwordHash = crypto
+    .createHash("sha256")
+    .update(password)
+    .digest("hex");
   if (user.password !== passwordHash) {
     return res.status(401).json({ message: "Invalid password" });
   }
 
-  const refreshToken = jwt.sign({ id: user._id, role: "rider" }, config.JWT_SECRET, { expiresIn: "7d" });
-  const refreshTokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex");
+  const refreshToken = jwt.sign(
+    { id: user._id, role: "rider" },
+    config.JWT_SECRET,
+    { expiresIn: "7d" },
+  );
+  const refreshTokenHash = crypto
+    .createHash("sha256")
+    .update(refreshToken)
+    .digest("hex");
 
   await sessionModel.create({
     user: user._id,
@@ -160,7 +328,11 @@ export async function login(req, res) {
     userAgent: req.headers["user-agent"],
   });
 
-  const accessToken = jwt.sign({ id: user._id, role: "rider" }, config.JWT_SECRET, { expiresIn: "10m" });
+  const accessToken = jwt.sign(
+    { id: user._id, role: "rider" },
+    config.JWT_SECRET,
+    { expiresIn: "10m" },
+  );
 
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
@@ -203,10 +375,14 @@ export async function getMe(req, res) {
 // ROTATE TOKEN
 export async function rotateToken(req, res) {
   const refreshToken = req.cookies.refreshToken;
-  if (!refreshToken) return res.status(401).json({ message: "Refresh Token missing" });
+  if (!refreshToken)
+    return res.status(401).json({ message: "Refresh Token missing" });
 
   const decoded = jwt.verify(refreshToken, config.JWT_SECRET);
-  const refreshTokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex");
+  const refreshTokenHash = crypto
+    .createHash("sha256")
+    .update(refreshToken)
+    .digest("hex");
 
   const session = await sessionModel.findOne({
     user: decoded.id,
@@ -214,14 +390,26 @@ export async function rotateToken(req, res) {
     revoked: false,
   });
 
-  if (!session) return res.status(401).json({ message: "Invalid or revoked refresh token" });
+  if (!session)
+    return res
+      .status(401)
+      .json({ message: "Invalid or revoked refresh token" });
 
   const { account, role } = await findAccountById(decoded.id);
   if (!account) return res.status(404).json({ message: "Account not found" });
 
-  const newRefreshToken = jwt.sign({ id: account._id, role }, config.JWT_SECRET, { expiresIn: "7d" });
-  const newRefreshTokenHash = crypto.createHash("sha256").update(newRefreshToken).digest("hex");
-  const accessToken = jwt.sign({ id: account._id, role }, config.JWT_SECRET, { expiresIn: "10m" });
+  const newRefreshToken = jwt.sign(
+    { id: account._id, role },
+    config.JWT_SECRET,
+    { expiresIn: "7d" },
+  );
+  const newRefreshTokenHash = crypto
+    .createHash("sha256")
+    .update(newRefreshToken)
+    .digest("hex");
+  const accessToken = jwt.sign({ id: account._id, role }, config.JWT_SECRET, {
+    expiresIn: "10m",
+  });
 
   session.refreshTokenHash = newRefreshTokenHash;
   await session.save();
@@ -246,10 +434,17 @@ export async function rotateToken(req, res) {
 // LOGOUT
 export async function logout(req, res) {
   const refreshToken = req.cookies.refreshToken;
-  if (!refreshToken) return res.status(401).json({ message: "Refresh token missing" });
+  if (!refreshToken)
+    return res.status(401).json({ message: "Refresh token missing" });
 
-  const refreshTokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex");
-  await sessionModel.findOneAndUpdate({ refreshTokenHash, revoked: false }, { revoked: true });
+  const refreshTokenHash = crypto
+    .createHash("sha256")
+    .update(refreshToken)
+    .digest("hex");
+  await sessionModel.findOneAndUpdate(
+    { refreshTokenHash, revoked: false },
+    { revoked: true },
+  );
 
   res.clearCookie("refreshToken");
   return res.status(200).json({ message: "Logged out successfully" });
@@ -258,13 +453,19 @@ export async function logout(req, res) {
 // LOGOUT ALL
 export async function logoutAll(req, res) {
   const refreshToken = req.cookies.refreshToken;
-  if (!refreshToken) return res.status(401).json({ message: "Token is missing" });
+  if (!refreshToken)
+    return res.status(401).json({ message: "Token is missing" });
 
   const decoded = jwt.verify(refreshToken, config.JWT_SECRET);
-  await sessionModel.updateMany({ user: decoded.id, revoked: false }, { revoked: true });
+  await sessionModel.updateMany(
+    { user: decoded.id, revoked: false },
+    { revoked: true },
+  );
 
   res.clearCookie("refreshToken");
-  return res.status(200).json({ message: "Logged out from all devices successfully" });
+  return res
+    .status(200)
+    .json({ message: "Logged out from all devices successfully" });
 }
 
 // VERIFY EMAIL
@@ -275,9 +476,17 @@ export async function verifyEmail(req, res) {
   const otpDoc = await otpModel.findOne({ email, otpHash });
   if (!otpDoc) return res.status(400).json({ message: "Invalid OTP" });
 
-  let account = await userModel.findByIdAndUpdate(otpDoc.user, { verified: true }, { new: true });
+  let account = await userModel.findByIdAndUpdate(
+    otpDoc.user,
+    { verified: true },
+    { new: true },
+  );
   if (!account) {
-    account = await captainModel.findByIdAndUpdate(otpDoc.user, { verified: true }, { new: true });
+    account = await captainModel.findByIdAndUpdate(
+      otpDoc.user,
+      { verified: true },
+      { new: true },
+    );
   }
 
   await otpModel.deleteMany({ user: otpDoc.user });

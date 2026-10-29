@@ -1,41 +1,29 @@
-import dotenv from "dotenv";
-import nodemailer from "nodemailer";
-import config from "../config/config.js";
+import { Resend } from "resend";
+import dotenv from "dotenv"
 dotenv.config();
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    type: 'OAuth2',
-    user: config.GOOGLE_USER,
-    clientId: config.GOOGLE_CLIENT_ID,
-    clientSecret: config.GOOGLE_CLIENT_SECRET,
-    refreshToken: config.GOOGLE_REFRESH_TOKEN,
-  },
-});
+if (!process.env.RESEND_API_KEY) {
+  throw new Error("RESEND_API_KEY is missing");
+}
 
-// Verify the connection configuration
-transporter.verify((error, success) => {
-  if (error) {
-    console.error('Error connecting to email server:', error);
-  } else {
-    console.log('Email server is ready to send messages');
-  }
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const sendEmail = async (to, subject, text, html) => {
-  try {
-    const info = await transporter.sendMail({
-      from: `"Divyanshu Uber" <${config.GOOGLE_USER}>`, // sender address
-      to, // list of receivers
-      subject, // Subject line
-      text, // plain text body
-      html, // html body
-    });
+  const { data, error } = await resend.emails.send({
+    from: process.env.EMAIL_FROM || "Uber Clone <onboarding@resend.dev>",
+    to: [to],
+    subject,
+    text,
+    html,
+  });
 
-    console.log('Message sent: %s', info.messageId);
-    console.log('Preview URL: %s', nodemailer.getTestMessageUrl(info));
-  } catch (error) {
-    console.error('Error sending email:', error);
+  if (error) {
+    console.error("Resend email error:", error);
+    throw new Error("Unable to send verification email");
   }
+
+  console.log("Verification email accepted by Resend:", data?.id);
+
+  return data;
 };
+
