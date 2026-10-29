@@ -9,11 +9,6 @@ import * as controllers from "../controllers/auth.controller.js";
 authRouter.post("/register", controllers.registerUser);
 authRouter.post("/register-captain", controllers.registerCaptain);
 
-/*
-- POST /api/auth/verify-email
-*/
-authRouter.post("/verify-email", controllers.verifyEmail);
-
 /* 
 - POST /api/auth/login (Rider)
 - POST /api/auth/login-captain (Driver)
