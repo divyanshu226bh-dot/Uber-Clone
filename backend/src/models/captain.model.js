@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 
 const captainSchema = new mongoose.Schema(
@@ -11,6 +12,11 @@ const captainSchema = new mongoose.Schema(
       type: String,
       required: [true, "email is required"],
       unique: [true, "email is already registered"],
+    },
+    phone: {
+      type: String,
+      trim: true,
+      match: [/^\+?[0-9]{10,15}$/, "Please enter a valid phone number"],
     },
     password: {
       type: String,
@@ -49,7 +55,6 @@ const captainSchema = new mongoose.Schema(
         enum: ["car", "auto", "moto"],
       },
     },
-    // GeoJSON location field for MongoDB spatial queries ($near / $geoWithin)
     location: {
       ltd: {
         type: Number,
@@ -58,7 +63,6 @@ const captainSchema = new mongoose.Schema(
         type: Number,
       },
     },
-    // Optional: Add socketId to keep track of active WebSocket connections
     socketId: {
       type: String,
     },
@@ -66,7 +70,6 @@ const captainSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Enable 2dsphere indexing for geospatial searches
 captainSchema.index({ "location.ltd": 1, "location.lng": 1 });
 
 const captainModel = mongoose.model("captains", captainSchema);

@@ -40,7 +40,26 @@ const UserRiding = () => {
   const [rideStatus, setRideStatus] = useState(ride?.status || "");
   const [routePositions, setRoutePositions] = useState([]);
   const [routeError, setRouteError] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [showCaptainPhone, setShowCaptainPhone] = useState(false);
+  const [phoneCopied, setPhoneCopied] = useState(false);
+
   const redirectTimer = useRef(null);
+
+  const handleCopyPhone = async () => {
+    if (!captain?.phone) return;
+
+    try {
+      await navigator.clipboard.writeText(captain.phone);
+      setPhoneCopied(true);
+
+      setTimeout(() => {
+        setPhoneCopied(false);
+      }, 1800);
+    } catch (error) {
+      console.error("Unable to copy phone number:", error);
+    }
+  };
 
   // Listen for this captain's live GPS updates.
   useEffect(() => {
@@ -154,6 +173,38 @@ const UserRiding = () => {
     };
   }, [socket, rideId]);
 
+  // Handle ride cancellation
+  useEffect(() => {
+    if (!socket || !rideId) return;
+
+    const handleRideCancelled = (data) => {
+      console.log("RIDER RECEIVED CANCELLATION EVENT:", {
+        receivedData: data,
+        currentRideId: rideId,
+      });
+
+      if (String(data?.rideId) !== String(rideId)) return;
+
+      console.log("RIDE ID MATCHED — NAVIGATING HOME");
+
+      setIsCancelling(false);
+      setRideStatus("cancelled");
+
+      navigate("/home", {
+        replace: true,
+        state: {
+          message: data?.message || "This ride has been cancelled.",
+        },
+      });
+    };
+
+    socket.on("ride-cancelled", handleRideCancelled);
+
+    return () => {
+      socket.off("ride-cancelled", handleRideCancelled);
+    };
+  }, [socket, rideId, navigate]);
+
   useEffect(() => {
     if (!socket || !rideId) return;
 
@@ -180,6 +231,19 @@ const UserRiding = () => {
       socket.off("ride-completed", handleCompleted);
     };
   }, [socket, rideId]);
+
+  const handleCancelRide = () => {
+    if (!socket?.connected || !rideId || isCancelling) return;
+
+    setIsCancelling(true);
+
+    socket.emit("cancel-ride", {
+      rideId,
+      userId: ride.userId || ride.user?._id || ride.user?.id,
+      cancelledBy: "rider",
+      captainId,
+    });
+  };
 
   const mapCenter = captainLocation || DEFAULT_CENTER;
 
@@ -341,22 +405,39 @@ const UserRiding = () => {
               </p>
             </div>
 
-            {captain?.phone ? (
-              <a
-                href={`tel:${captain.phone}`}
-                aria-label="Call your captain"
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#990011] text-white transition hover:bg-[#7a000e]"
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowCaptainPhone((prev) => !prev)}
+                disabled={!captain?.phone}
+                aria-label="Show captain phone number"
+                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#990011] text-white transition hover:bg-[#7a000e] disabled:cursor-not-allowed disabled:bg-zinc-300"
               >
                 <FaPhoneAlt />
-              </a>
-            ) : (
-              <div
-                title="Captain phone number unavailable"
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FCF6F5] text-zinc-400"
-              >
-                <FaPhoneAlt />
-              </div>
-            )}
+              </button>
+
+              {showCaptainPhone && captain?.phone && (
+                <div className="absolute right-0 top-14 z-50 w-60 rounded-2xl border border-[#111111]/10 bg-white p-4 shadow-lg">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
+                    Captain's phone number
+                  </p>
+
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <p className="break-all text-sm font-bold text-[#111111]">
+                      {captain.phone}
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyPhone}
+                      className="shrink-0 rounded-xl bg-[#990011]/10 px-3 py-2 text-xs font-bold text-[#990011] transition hover:bg-[#990011]/20"
+                    >
+                      {phoneCopied ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -389,6 +470,16 @@ const UserRiding = () => {
             <FaShieldAlt className="mt-0.5 shrink-0 text-[#990011]" />
             <div>
               <p className="text-sm font-bold">Travel safely</p>
+              {["accepted", "arrived"].includes(rideStatus) && (
+                <button
+                  type="button"
+                  onClick={handleCancelRide}
+                  disabled={isCancelling}
+                  className="mt-4 w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3.5 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isCancelling ? "Cancelling..." : "Cancel ride"}
+                </button>
+              )}
               <p className="mt-1 text-xs leading-relaxed text-zinc-500">
                 Verify your captain and vehicle before boarding. Never share
                 your ride OTP until you are with your captain and ready to

@@ -25,10 +25,9 @@ const PORT = process.env.PORT || config.PORT || 3000;
 // 1. Wrap Express app with HTTP server
 const server = http.createServer(app);
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  config.CLIENT_URL,
-].filter(Boolean);
+const allowedOrigins = ["http://localhost:5173", config.CLIENT_URL].filter(
+  Boolean,
+);
 
 // 2. Initialize Socket.io instance
 const io = new Server(server, {
@@ -274,7 +273,7 @@ io.on("connection", (socket) => {
 
       const rider = await userModel
         .findById(ride.user)
-        .select("username email");
+        .select("username email phone");
 
       const acceptedCaptain = {
         _id: captain._id.toString(),
@@ -289,6 +288,7 @@ io.on("connection", (socket) => {
         rider: {
           username: rider?.username || "Rider",
           email: rider?.email || "",
+          phone: rider?.phone || "",
         },
         pickup: ride.pickup,
         destination: ride.destination,
@@ -593,6 +593,115 @@ io.on("connection", (socket) => {
       });
     }
   });
+
+// Rider or assigned captain cancels a ride before arrival.
+socket.on("cancel-ride", async (data) => {
+  console.log("CANCEL REQUEST RECEIVED:", data);
+
+  try {
+    const { rideId, userId, captainId, cancelledBy } = data || {};
+
+    // Validate cancellation details.
+    if (
+      !mongoose.Types.ObjectId.isValid(rideId) ||
+      !["rider", "captain"].includes(cancelledBy)
+    ) {
+      socket.emit("ride-error", {
+        message: "Invalid ride cancellation details.",
+      });
+      return;
+    }
+
+    // Only allow cancellation while pending or accepted.
+    const filter = {
+      _id: rideId,
+      status: { $in: ["pending", "accepted"] },
+    };
+
+    if (cancelledBy === "rider") {
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        socket.emit("ride-error", {
+          message: "Invalid rider ID.",
+        });
+        return;
+      }
+
+      filter.user = userId;
+    } else {
+      if (!mongoose.Types.ObjectId.isValid(captainId)) {
+        socket.emit("ride-error", {
+          message: "Invalid captain ID.",
+        });
+        return;
+      }
+
+      filter.captain = captainId;
+    }
+
+    // Update ride status in the database.
+    const cancelledRide = await rideModel.findOneAndUpdate(
+      filter,
+      { $set: { status: "cancelled" } },
+      { new: true }
+    );
+
+    if (!cancelledRide) {
+      socket.emit("ride-error", {
+        message:
+          "This ride cannot be cancelled. It may have already arrived, started, or finished.",
+      });
+      return;
+    }
+
+    // Prepare cancellation event data.
+    const update = {
+      rideId: cancelledRide._id.toString(),
+      status: "cancelled",
+      cancelledBy,
+      message:
+        cancelledBy === "rider"
+          ? "The rider cancelled this ride."
+          : "The captain cancelled this ride.",
+    };
+
+    // Identify rider's private room.
+    const riderRoom = `user_${cancelledRide.user.toString()}`;
+
+    // Check whether the rider is connected to the room.
+    const riderSockets = await io.in(riderRoom).fetchSockets();
+
+    console.log("RIDER CANCELLATION DELIVERY:", {
+      riderRoom,
+      riderSocketCount: riderSockets.length,
+      rideId: cancelledRide._id.toString(),
+    });
+
+    // Notify the rider.
+    io.to(riderRoom).emit("ride-cancelled", update);
+
+    // Notify the assigned captain.
+    if (cancelledRide.captain) {
+      io.to(`captain_${cancelledRide.captain.toString()}`).emit(
+        "ride-cancelled",
+        update
+      );
+    }
+
+    // Remove this request from all captains' pending popups.
+    io.to("captains").emit("ride-cancelled", update);
+
+    console.log(
+      `Ride ${cancelledRide._id} cancelled by ${cancelledBy}`
+    );
+
+  } catch (error) {
+    console.error("Ride cancellation error:", error);
+
+    socket.emit("ride-error", {
+      message: "Could not cancel the ride. Please try again.",
+    });
+  }
+});
 
   socket.on("disconnect", () => {
     console.log("❌ Client disconnected:", socket.id);

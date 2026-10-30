@@ -6,7 +6,7 @@ import {
   subscribeToAccessToken,
 } from "./authTokenStore.js";
 
-import { refreshAccessToken } from "../services/Api.js"
+import api, { refreshAccessToken } from "../services/Api.js";
 
 const AuthContext = createContext();
 
@@ -30,18 +30,29 @@ export const AuthProvider = ({ children }) => {
 
     const initAuth = async () => {
       try {
-        const data = await refreshAccessToken();
+        // First refresh the access token using the refresh-token cookie.
+        await refreshAccessToken();
 
         if (cancelled) return;
+
+        // Then fetch the complete, latest user profile.
+        const response = await api.get("/auth/get-me");
+
+        if (cancelled) return;
+
+        const data = response.data;
 
         setUser({
-          _id: data.id,
+          _id: data.id || data._id,
           username: data.username,
           email: data.email,
+          phone: data.phone || "",
           role: data.role,
         });
-      } catch {
+      } catch (error) {
         if (cancelled) return;
+
+        console.error("Auth initialization error:", error);
 
         updateToken(null);
         setUser(null);

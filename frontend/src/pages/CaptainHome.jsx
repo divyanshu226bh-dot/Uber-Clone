@@ -137,6 +137,8 @@ const CaptainHome = () => {
   }, [isOnline, socket, captainId]);
 
   // 3. Listen for Real-Time Incoming Ride Requests via Socket.io
+
+  // 3. Listen for Real-Time Incoming Ride Requests via Socket.io
   useEffect(() => {
     if (!socket || !isOnline) {
       setActiveRideRequest(null);
@@ -151,10 +153,31 @@ const CaptainHome = () => {
       setActiveRideRequest(rideData);
     };
 
+    const handleRideCancelled = (data) => {
+      console.log("🚫 Ride cancellation received:", data);
+
+      setActiveRideRequest((currentRequest) => {
+        if (
+          currentRequest &&
+          String(currentRequest.rideId) === String(data.rideId)
+        ) {
+          return null;
+        }
+
+        return currentRequest;
+      });
+
+      setStatusMessage(
+        "A ride request was cancelled. Searching for next ride...",
+      );
+    };
+
     socket.on("new-ride-popup", handleNewRidePopup);
+    socket.on("ride-cancelled", handleRideCancelled);
 
     return () => {
       socket.off("new-ride-popup", handleNewRidePopup);
+      socket.off("ride-cancelled", handleRideCancelled);
     };
   }, [socket, isOnline]);
 

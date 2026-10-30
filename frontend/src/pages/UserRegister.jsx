@@ -9,12 +9,14 @@ import {
   FaEyeSlash,
   FaArrowLeft,
   FaCar,
+  FaPhone,
 } from "react-icons/fa";
 
 const UserRegister = () => {
   // Registration form state
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
@@ -36,6 +38,7 @@ const UserRegister = () => {
       const response = await api.post("/auth/register", {
         username,
         email,
+        phone,
         password,
       });
 
@@ -144,6 +147,28 @@ const UserRegister = () => {
                   placeholder="name@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-sm text-[#111111] font-medium pl-11 pr-4 py-3 rounded-2xl transition-all placeholder:text-zinc-400"
+                />
+              </div>
+            </div>
+
+            {/* Phone Field */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-[#111111]">
+                Phone Number
+              </label>
+
+              <div className="relative flex items-center">
+                <FaPhone className="absolute left-4 text-zinc-400 text-sm" />
+
+                <input
+                  type="tel"
+                  required
+                  placeholder="+91 9876543210"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  pattern="\+?[0-9]{10,15}"
+                  title="Enter a valid phone number with 10–15 digits."
                   className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-sm text-[#111111] font-medium pl-11 pr-4 py-3 rounded-2xl transition-all placeholder:text-zinc-400"
                 />
               </div>

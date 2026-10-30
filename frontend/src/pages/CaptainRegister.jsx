@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../services/Api";
@@ -13,6 +12,7 @@ import {
   FaPalette,
   FaHashtag,
   FaUsers,
+  FaPhone,
 } from "react-icons/fa";
 import { TbSteeringWheelFilled } from "react-icons/tb";
 
@@ -20,6 +20,7 @@ const CaptainRegister = () => {
   // Captain Personal Details
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
@@ -47,6 +48,7 @@ const CaptainRegister = () => {
       const response = await api.post("/auth/register-captain", {
         username,
         email,
+        phone,
         password,
         vehicle: {
           color,
@@ -58,7 +60,7 @@ const CaptainRegister = () => {
 
       if (response.status === 201) {
         setSuccessMsg(
-          "Captain registered successfully! Redirecting to login..."
+          "Captain registered successfully! Redirecting to login...",
         );
 
         setTimeout(() => {
@@ -68,7 +70,7 @@ const CaptainRegister = () => {
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Registration failed. Check vehicle details."
+          "Registration failed. Check vehicle details.",
       );
     } finally {
       setLoading(false);
@@ -111,7 +113,8 @@ const CaptainRegister = () => {
             </h2>
 
             <p className="text-xs font-medium text-zinc-500">
-              Enter your personal and vehicle details to start driving with Uber.
+              Enter your personal and vehicle details to start driving with
+              Uber.
             </p>
           </div>
 
@@ -173,6 +176,26 @@ const CaptainRegister = () => {
                     className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-xs text-[#111111] font-medium pl-10 pr-3 py-3 rounded-2xl placeholder:text-zinc-400"
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Phone Number */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-[#111111]">
+                Phone Number
+              </label>
+              <div className="relative flex items-center">
+                <FaPhone className="absolute left-3.5 text-zinc-400 text-xs" />
+                <input
+                  type="tel"
+                  required
+                  placeholder="+919876543210"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  pattern="\+?[0-9]{10,15}"
+                  title="Enter a valid phone number with 10–15 digits."
+                  className="w-full bg-[#FCF6F5] border border-[#111111]/15 focus:border-[#990011] focus:bg-white focus:outline-none text-xs text-[#111111] font-medium pl-10 pr-3 py-3 rounded-2xl placeholder:text-zinc-400"
+                />
               </div>
             </div>
 

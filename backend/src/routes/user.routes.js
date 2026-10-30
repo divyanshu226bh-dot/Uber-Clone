@@ -21,6 +21,21 @@ authRouter.post("/login-captain", controllers.loginCaptain);
 */
 authRouter.get("/get-me", controllers.getMe);
 
+/*
+- PUT /api/auth/update-profile
+*/
+authRouter.put("/update-profile", controllers.updateProfile);
+
+/* 
+- GET /api/auth/ride-history
+*/
+authRouter.get("/ride-history", controllers.getUserRideHistory);
+
+/* 
+- GET /api/auth/captain-earnings
+*/
+authRouter.get("/captain-earnings", controllers.getCaptainEarnings);
+
 /* 
 - GET /api/auth/rotate-token
 */

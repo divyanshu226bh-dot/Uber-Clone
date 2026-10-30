@@ -12,6 +12,13 @@ import CaptainProtectWrapper from "./components/CaptainProtectedWrapper";
 import ActiveRideProtectedWrapper from "./components/ActiveRideProtectedWrapper";
 import UserRiding from "./pages/UserRiding";
 import CaptainRiding from "./pages/CaptainRiding";
+import UserProfile from "./pages/UserProfile";
+import UserActivity from "./pages/UserActivity";
+import CaptainProfile from "./pages/CaptainProfile";
+import UserHelp from "./pages/UserHelp";
+import UserPayments from "./pages/UserPayments";
+import CaptainEarnings from "./pages/CaptainEarnings";
+import CaptainHelp from "./pages/CaptainHelp";
 
 function App() {
   return (
@@ -37,6 +44,12 @@ function App() {
           </UserProtectWrapper>
         }
       />
+      <Route path="/profile" element={ <UserProtectWrapper> <UserProfile/> </UserProtectWrapper>} />
+      <Route path="/activity" element={ <UserProtectWrapper> <UserActivity/> </UserProtectWrapper>} />
+      <Route path="/help" element={ <UserProtectWrapper> <UserHelp/> </UserProtectWrapper>} />
+      <Route path="/payments" element={ <UserProtectWrapper> <UserPayments/> </UserProtectWrapper>} />
+
+      // captain routes 
       <Route path="/captain-login" element={<CaptainLogin />} />
       <Route path="/captain-register" element={<CaptainRegister />} />
       <Route
@@ -58,7 +71,14 @@ function App() {
           </CaptainProtectWrapper>
         }
       />
+
+      <Route path="/captain-profile" element={ <CaptainProtectWrapper> <CaptainProfile/> </CaptainProtectWrapper>} />
+      <Route path="/captain-earnings" element={ <CaptainProtectWrapper> <CaptainEarnings/> </CaptainProtectWrapper>} />
+      <Route path="/captain-help" element={ <CaptainProtectWrapper> <CaptainHelp/> </CaptainProtectWrapper>} />
+
     </Routes>
+
+    
   );
 }
 

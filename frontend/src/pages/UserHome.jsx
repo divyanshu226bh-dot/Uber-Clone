@@ -88,7 +88,10 @@ const UserHome = () => {
   const [selectedRide, setSelectedRide] = useState("uber-go");
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [createdRideId, setCreatedRideId] = useState(null);
+
   const [message, setMessage] = useState("");
+  const [isCancellingRide, setIsCancellingRide] = useState(false);
   const createdRideRef = useRef(null);
 
   // Live Location Autocomplete Suggestions
@@ -107,14 +110,30 @@ const UserHome = () => {
   const selectedRideData = rideOptions.find((ride) => ride.id === selectedRide);
 
   // 1. Join Socket Room on Mount
+  // Join the rider's personal Socket.IO room.
   useEffect(() => {
-    if (userId && socket) {
+    if (!socket || !userId) return;
+
+    const joinUserRoom = () => {
       socket.emit("join", {
         userType: "user",
-        userId: userId,
+        userId,
       });
+
+      console.log("Rider room joined:", `user_${userId}`);
+    };
+
+    if (socket.connected) {
+      joinUserRoom();
     }
-  }, [userId, socket]);
+
+    // Rejoin whenever the socket reconnects.
+    socket.on("connect", joinUserRoom);
+
+    return () => {
+      socket.off("connect", joinUserRoom);
+    };
+  }, [socket, userId]);
 
   // 2. Listen for Ride Acceptance over Socket.io
   useEffect(() => {
@@ -159,6 +178,33 @@ const UserHome = () => {
       socket.off("ride-accepted", handleRideAccepted);
     };
   }, [socket, navigate, pickup, destination, selectedRide]);
+
+  // 2.1 Handle ride cancellation while searching for a captain
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleRideCancelled = (data) => {
+      const createdRide = createdRideRef.current;
+
+      if (!createdRide || String(createdRide.rideId) !== String(data?.rideId)) {
+        return;
+      }
+
+      console.log("🚫 Ride cancelled while searching:", data);
+
+      setIsCancellingRide(false);
+      createdRideRef.current = null;
+      setCreatedRideId(null);
+      setStep("home");
+      setMessage(data?.message || "Your ride request was cancelled.");
+    };
+
+    socket.on("ride-cancelled", handleRideCancelled);
+
+    return () => {
+      socket.off("ride-cancelled", handleRideCancelled);
+    };
+  }, [socket]);
 
   // 3. Real-time Location Lookup (OpenStreetMap API)
   useEffect(() => {
@@ -376,6 +422,8 @@ const UserHome = () => {
         otp: String(data.otp),
         status: data.status,
       };
+
+      setCreatedRideId(String(data.rideId));
     };
 
     socket.on("ride-created", handleRideCreated);
@@ -446,11 +494,47 @@ const UserHome = () => {
       price: ride.price,
     });
   };
+
+  const handleCancelRide = () => {
+    console.log("CANCEL BUTTON CLICKED", {
+      ride: createdRideRef.current,
+      userId,
+      socketConnected: socket?.connected,
+    });
+    const createdRide = createdRideRef.current;
+
+    if (!socket?.connected || !createdRide?.rideId || !userId) {
+      setMessage(
+        "Ride details are not ready yet. Please wait a moment and try again.",
+      );
+      return;
+    }
+
+    setIsCancellingRide(true);
+    setMessage("Cancelling your ride...");
+
+    socket.emit("cancel-ride", {
+      rideId: createdRide.rideId,
+      userId,
+      cancelledBy: "rider",
+    });
+  };
+
   useEffect(() => {
     if (!socket) return;
 
     const handleRideError = (data) => {
-      setMessage(data?.message || "Something went wrong with your ride.");
+      const error = data?.message || "Something went wrong with your ride.";
+
+      setMessage(error);
+
+      if (isCancellingRide) {
+        // Cancellation failed: keep the searching screen open.
+        setIsCancellingRide(false);
+        return;
+      }
+
+      // Preserve existing behavior for other ride errors.
       setStep("home");
     };
 
@@ -459,7 +543,8 @@ const UserHome = () => {
     return () => {
       socket.off("ride-error", handleRideError);
     };
-  }, [socket]);
+  }, [socket, isCancellingRide]);
+
   const handleLogout = async () => {
     try {
       await api.get("/auth/logout");
@@ -1287,16 +1372,36 @@ const UserHome = () => {
       )}
 
       {/* STEP 4: Searching Driver Loader */}
+
       {step === "searching" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-5 backdrop-blur-xs">
-          <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-3xl bg-white p-8 text-center shadow-2xl">
-            <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#990011] border-t-transparent" />
-            <h3 className="text-xl font-black text-[#111111]">
-              Searching for Nearby Drivers
-            </h3>
-            <p className="text-xs text-zinc-500">
-              Connecting your request with drivers near{" "}
-              {pickup || "your location"}...
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm sm:p-5">
+          <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-3xl bg-white p-5 text-center shadow-2xl sm:gap-5 sm:p-8">
+            {/* Loading animation */}
+            <div className="h-12 w-12 shrink-0 animate-spin rounded-full border-4 border-[#990011] border-t-transparent" />
+
+            <div className="space-y-2">
+              <h3 className="text-lg font-black leading-tight text-[#111111] sm:text-xl">
+                Searching for Nearby Drivers
+              </h3>
+
+              <p className="wrap-break-word text-xs leading-relaxed text-zinc-500 sm:text-sm">
+                Connecting your request with drivers near{" "}
+                {pickup || "your location"}...
+              </p>
+            </div>
+
+            {/* Cancel ride */}
+            <button
+              type="button"
+              onClick={handleCancelRide}
+              disabled={isCancellingRide || !createdRideId}
+              className="mt-1 w-full rounded-2xl border border-[#990011]/25 bg-[#FCF6F5] px-4 py-3.5 text-sm font-bold text-[#990011] transition hover:border-[#990011] hover:bg-[#990011]/5 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#990011]/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isCancellingRide ? "Cancelling..." : "Cancel ride"}
+            </button>
+
+            <p className="text-[11px] leading-relaxed text-zinc-400">
+              You can cancel while waiting for a driver.
             </p>
           </div>
         </div>

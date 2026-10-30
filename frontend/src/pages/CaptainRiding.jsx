@@ -59,10 +59,28 @@ const CaptainRiding = () => {
   const [busy, setBusy] = useState(false);
   const [routePositions, setRoutePositions] = useState([]);
   const [routeError, setRouteError] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [showRiderPhone, setShowRiderPhone] = useState(false);
+  const [phoneCopied, setPhoneCopied] = useState(false);
 
   const isArrived = rideStatus === "arrived";
   const isOngoing = rideStatus === "ongoing";
   const isCompleted = rideStatus === "completed";
+
+  const handleCopyPhone = async () => {
+    if (!rider?.phone) return;
+
+    try {
+      await navigator.clipboard.writeText(rider.phone);
+      setPhoneCopied(true);
+
+      setTimeout(() => {
+        setPhoneCopied(false);
+      }, 1800);
+    } catch (error) {
+      console.error("Unable to copy phone number:", error);
+    }
+  };
 
   // Join the captain's personal room.
   useEffect(() => {
@@ -273,6 +291,35 @@ const CaptainRiding = () => {
     };
   }, [socket, rideId]);
 
+  // Handle ride cancellation
+  useEffect(() => {
+    if (!socket || !rideId) return;
+
+    const handleRideCancelled = (data) => {
+      if (String(data?.rideId) !== String(rideId)) return;
+
+      console.log("🚫 Ride cancelled:", data);
+
+      setIsCancelling(false);
+      setRideStatus("cancelled");
+      setBusy(false);
+      setErrorMessage(data?.message || "This ride has been cancelled.");
+
+      navigate("/captain-home", {
+        replace: true,
+        state: {
+          message: data?.message || "This ride has been cancelled.",
+        },
+      });
+    };
+
+    socket.on("ride-cancelled", handleRideCancelled);
+
+    return () => {
+      socket.off("ride-cancelled", handleRideCancelled);
+    };
+  }, [socket, rideId, navigate]);
+
   const handleArrived = () => {
     if (!socket || !rideId || !userId || !captainId || busy) return;
 
@@ -316,6 +363,20 @@ const CaptainRiding = () => {
     socket.emit("complete-ride", {
       rideId,
       captainId,
+    });
+  };
+
+  const handleCancelRide = () => {
+    if (!socket?.connected || !rideId || !captainId || isCancelling) return;
+
+    setIsCancelling(true);
+    setErrorMessage("");
+
+    socket.emit("cancel-ride", {
+      rideId,
+      userId,
+      captainId,
+      cancelledBy: "captain",
     });
   };
 
@@ -403,6 +464,17 @@ const CaptainRiding = () => {
                 }`}
               />
             </div>
+
+            {["accepted", "arrived"].includes(rideStatus) && (
+              <button
+                type="button"
+                onClick={handleCancelRide}
+                disabled={isCancelling || busy}
+                className="mt-4 w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3.5 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isCancelling ? "Cancelling..." : "Cancel ride"}
+              </button>
+            )}
           </section>
 
           <section className="relative h-[350px] overflow-hidden rounded-3xl border border-[#111111]/10 bg-white shadow-sm sm:h-[440px] lg:h-[520px]">
@@ -524,6 +596,40 @@ const CaptainRiding = () => {
                   </p>
                 )}
               </div>
+            </div>
+
+            <div className="relative mt-4">
+              <button
+                type="button"
+                onClick={() => setShowRiderPhone((prev) => !prev)}
+                disabled={!rider?.phone}
+                aria-label="Show rider phone number"
+                className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#990011] text-white transition hover:bg-[#7a000e] disabled:cursor-not-allowed disabled:bg-zinc-300"
+              >
+                <FaPhoneAlt />
+              </button>
+
+              {showRiderPhone && rider?.phone && (
+                <div className="mt-3 w-full rounded-2xl border border-[#111111]/10 bg-[#FCF6F5] p-4">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
+                    Rider's phone number
+                  </p>
+
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <p className="break-all text-sm font-bold text-[#111111]">
+                      {rider.phone}
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyPhone}
+                      className="shrink-0 rounded-xl bg-[#990011]/10 px-3 py-2 text-xs font-bold text-[#990011] transition hover:bg-[#990011]/20"
+                    >
+                      {phoneCopied ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="mt-5 flex items-start gap-3 rounded-2xl border border-[#111111]/10 bg-[#FCF6F5] p-4">

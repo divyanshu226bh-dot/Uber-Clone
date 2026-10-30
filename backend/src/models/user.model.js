@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
@@ -10,6 +11,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, "email is required"],
     unique: [true, "email is already registered"],
+  },
+  phone: {
+    type: String,
+    trim: true,
+    match: [/^\+?[0-9]{10,15}$/, "Please enter a valid phone number"],
   },
   password: {
     type: String,
